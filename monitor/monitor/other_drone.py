@@ -20,7 +20,7 @@ class OtherDrone(MonitorData):
             self.state = State.LOST
 
     def positionCallback(self, msg):
-        super().position_callback(msg)
+        super().positionCallback(msg)
         self.time_last_msg = time.time()
 
     def reset(self):

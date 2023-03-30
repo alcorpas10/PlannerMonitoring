@@ -19,7 +19,8 @@ class Drone(MonitorData):
         self.last_wp = self.position # lastWP in local_drone
         self.time_last_msg = time.time() # from global_drone
 
-        self.other_drones = {} # new, to save the other drones
+        self.other_drones = {} # TODO change name
+        self.lost_drones = {}
 
 
     def init_other_drones(self, n_drones):
@@ -52,10 +53,6 @@ class Drone(MonitorData):
                 return 0
 
         # When the drone is in a waypoint
-        print("waypoint_dist: ", waypoint_dist)
-        print("position: ", self.position)
-        print("waypoint: ", wps[0]['point'])
-        print("length: ", len(wps))
         if waypoint_dist < dist_wp:
             self.advanceWP()
             return 3
@@ -106,6 +103,7 @@ class Drone(MonitorData):
     
     def setWaypoints(self, path):
         path_id = path.identifier.natural
+        # if the id is of a lost drone something is wrong
         if path_id == self.id:
             super().setWaypoints(path)
             self.last_wp = self.position
@@ -130,7 +128,10 @@ class Drone(MonitorData):
         self.other_drones[drone_id].saveState()
 
     def setState(self, drone_id, state):
-        self.other_drones[drone_id].state = state
+        self.other_drones[drone_id].setState(state)
+        if state == State.LOST:
+            self.lost_drones[drone_id] = self.other_drones[drone_id]
+            self.other_drones.pop(drone_id)
 
     def setPosInTrj(self, drone_id, pos):
         self.other_drones[drone_id].pos_in_trj = pos
@@ -150,19 +151,29 @@ class Drone(MonitorData):
     def generatePlanPaths(self):
         paths = []
 
-        for _, drone in self.other_drones.items():
-            paths.append(drone.generatePlanPath())
+        for drone_id, drone in self.other_drones.items():
+            path = drone.generatePlanPath()
+            #print("Path of drone " + str(drone_id) + ": " + str(path))
+            if path is not None:
+                paths.append(path)
         
-        paths.append(self.generatePlanPath())
+        path = self.generatePlanPath()
+        #print("My path " + str(path))
+        paths.append(path)
         return paths
 
     def resetDrone(self, drone_id):
-        self.other_drones[drone_id].reset()
+        if drone_id in self.lost_drones.keys():
+            self.lost_drones[drone_id].reset()
+            self.other_drones[drone_id] = self.lost_drones[drone_id]
+            self.lost_drones.pop(drone_id)
+        else:
+            self.other_drones[drone_id].reset()
 
     def reset(self):
         super().reset()
         
-        self.battery = 100
+        self.battery = 100 # TODO check how the real battery works
         self.camera = True
         self.deviated = False
 

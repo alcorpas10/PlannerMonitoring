@@ -6,13 +6,14 @@ import math
 from geometry_msgs.msg import Point
 #from geometry_msgs.msg import Twist
 
-from mutac_msgs.msg import Alarm, State, Plan, Identifier, Label#, DroneRequest, UserResponse, DroneComms
+from mutac_msgs.msg import Alarm, State, Plan, Identifier, Label #, DroneRequest, UserResponse, DroneComms
 from mutac_msgs.srv import UpdatePlan
 
 from geometry_msgs.msg import Pose
 from sensor_msgs.msg import BatteryState
 
 from monitor.monitor_data import State as MonitorState
+
 from monitor.drone import Drone
 
 
@@ -48,6 +49,10 @@ class ExecutionMonitor(Node):
         #self.comms_pub = self.create_publisher(DroneComms, '/mutac/drone_comms', 100)
 
     def initializeSubscribers(self):
+        self.pose_subs = []
+        for i in range(self.n_drones):
+            if i != self.id:
+                self.pose_subs.append(self.create_subscription(Pose, '/mutac/drone'+str(i+1)+'/drone_pose', self.drone.other_drones[i].positionCallback, 100))
         self.pose_sub = self.create_subscription(Pose, '/mutac/drone'+str(self.id+1)+'/drone_pose', self.drone.positionCallback, 100)
         #self.twist_sub = self.create_subscription(Twist, '/mutac/drone'+str(self.id)+'/drone_twist', self.drone.velocityCallback, 100)
         self.trj_sub = self.create_subscription(Plan, '/mutac/real_planned_paths', self.trajectoryCallback, 100)
@@ -58,17 +63,11 @@ class ExecutionMonitor(Node):
         self.covered_sub = self.create_subscription(Identifier, '/mutac/covered_points', self.waypointCallback, 100)
         #self.comms_sub = self.create_subscription(DroneComms, '/mutac/drone_comms', self.commsCallback, 100)
 
-    # Keeps checking the state of the drone.
-    # The execution monitor sends a message to notify the global monitor if the drone:
-    #   - passed through a waypoint 3
-    #   - finished the inspection 0
-    #   - got lost 1
-    #   - landed 2
-    # If the drone got lost or landed, the execution monitor finishes its execution. */
     def timerCallback(self):
+        """At a certain rate it is checked if the mission is going ok"""
         event_id = self.drone.checkDrone(self.dist_trj, self.dist_wp)
 
-        if event_id == 0:
+        if event_id == 0: # MISSION_FINISHED
             pos = self.drone.pos_in_trj if self.drone.deviated else self.drone.position
             msg = State()
             msg.identifier.natural = self.id
@@ -77,9 +76,10 @@ class ExecutionMonitor(Node):
             msg.position.y = pos[1]
             msg.position.z = pos[2]
             self.event_pub.publish(msg)
-            # self.drone.reset() # TODO do some type of reset to make it ready for the next mission 
+            self.drone.reset()
 
-        elif event_id == 1:
+        elif event_id == 1: # LOST
+            #self.get_logger().info('I am lost')
             pos = self.drone.pos_in_trj if self.drone.deviated else self.drone.position
             msg = State()
             msg.identifier.natural = self.id
@@ -88,20 +88,22 @@ class ExecutionMonitor(Node):
             msg.position.y = pos[1]
             msg.position.z = pos[2]
             self.event_pub.publish(msg)
-            self.askReplan() # TODO call updatePlan service
+            print(len(self.drone.other_drones))
+            if len(self.drone.other_drones) > 0:
+                self.askReplan() # TODO call updatePlan service
+            self.drone.waypoints = []
+            #exit(0)
 
-        elif event_id == 2:
+        elif event_id == 2: # LANDED
             msg = State()
             msg.identifier.natural = self.id
             msg.state = event_id
             self.event_pub.publish(msg)
 
-        elif event_id == 3:
+        elif event_id == 3: # WAYPOINT
             msg = Identifier()
             msg.natural = self.id
             self.covered_pub.publish(msg)
-
-        # TODO check if it is necesary to call reset when finished
 
     def waypointCallback(self, msg):
         drone_id = msg.natural
@@ -110,27 +112,35 @@ class ExecutionMonitor(Node):
 
     def eventCallback(self, msg):
         drone_id = msg.identifier.natural
-        if drone_id in self.drone.other_drones.keys() or drone_id == self.id:
+        #self.get_logger().info("Drone " + str(drone_id) + " lost")
+        #self.get_logger().info("Other drones " + str(self.drone.other_drones))
+        if drone_id in self.drone.other_drones.keys() or drone_id in self.drone.lost_drones.keys() or drone_id == self.id:
             if drone_id != self.id:
-                if msg.state == MonitorState.MISSION_FINISHED:
+                if msg.state == State.FINISHED:
                     self.drone.setState(drone_id, MonitorState.MISSION_FINISHED)
                     self.drone.advanceOtherWP(drone_id)
-                elif msg.state == MonitorState.LANDED:
+                elif msg.state == State.LANDED:
                     self.drone.setState(drone_id, MonitorState.LANDED)
-                elif msg.state == MonitorState.LOST:
+                elif msg.state == State.LOST:
                     self.drone.saveState(drone_id)
-                    self.drone.setState(drone_id, MonitorState.LOST)
                     self.drone.setPosInTrj(drone_id, (msg.position.x, msg.position.y, msg.position.z))
-                    # TODO maybe add the drone to a lost list in the drone class
-                else:
-                    # TODO lost_drones should be reimplemented?
+                    self.drone.setState(drone_id, MonitorState.LOST)
+                    #self.get_logger().info("Other drones " + str(self.drone.other_drones))
+                    #self.get_logger().info("Lost drones " + str(self.drone.lost_drones))
+                elif msg.state == State.RECOVERED: # RECOVERED
+                    #self.get_logger().info("Estoy en recovered")
                     self.drone.resetDrone(drone_id)
                     # self.askReplan() # TODO this is not the monitor of the recovered drone so it should not ask for a replan 
         else:
             self.get_logger().info("WARNING: Event received for a drone that doesn't exists.")
 
     def trajectoryCallback(self, msg):
+        self.get_logger().info("********************")
+        self.get_logger().info("Trajectory received")
+        self.get_logger().info("********************")
         for plan in msg.paths:
+            self.get_logger().info("Path "+str(plan.identifier.natural) + ": "+str(plan.points))
+            self.get_logger().info("********************")
             self.drone.setWaypoints(plan)
 
         # plans = msg.paths
@@ -168,6 +178,10 @@ class ExecutionMonitor(Node):
     def askReplan(self):
         srv = UpdatePlan.Request()
         srv.plan.paths = self.drone.generatePlanPaths()
+
+        while not self.replan_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Service not available, waiting again...')
+        
         self.replan_client.call_async(srv)
 
     def alarmCallback(self, msg):
@@ -180,7 +194,9 @@ class ExecutionMonitor(Node):
                 msg = State()
                 msg.identifier.natural = self.id
                 msg.state = State.RECOVERED
+
                 self.event_pub.publish(msg)
+                self.askReplan()
 
 
 class GetParam(Node):

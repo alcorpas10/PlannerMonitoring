@@ -21,6 +21,7 @@ class MonitorData:
     def __init__(self, id):
         self.id = id
         self.state = State.NOT_STARTED
+        # self.last_state = State.NOT_STARTED # TODO check if necessary to avoid replannings
 
         self.position = (0.0, 0.0, 0.0)
         self.pos_in_trj = (0.0, 0.0, 0.0)
@@ -30,10 +31,16 @@ class MonitorData:
         self.last_label = Label.POSITIONING_LABEL
         
 
+    def setState(self, state):
+        self.state = state
+        if state == State.LOST:
+            self.waypoints = []
+
     def setWaypoints(self, path):
         """Set the waypoints of the drone starting from the second point
         of the path. The first point is the current position of the drone."""
         self.state = State.ON_MISSION
+        self.waypoints = []
         for l_point in path.points[1:]:
             label = l_point.label.natural
             point = (l_point.point.x, l_point.point.y, l_point.point.z)
@@ -66,10 +73,13 @@ class MonitorData:
             l_point.label.natural = waypoint['label']
             path.points.append(l_point)
 
-        point.label.natural = Label.POSITIONING_LABEL if len(path.points) <= 0 or path.points[0].label.natural != self.last_label else path.points[0].label.natural
-        
+        #point.label.natural = Label.POSITIONING_LABEL if len(path.points) <= 0 or path.points[0].label.natural != self.last_label else path.points[0].label.natural
+        if len(path.points) <= 0 or path.points[0].label.natural != self.last_label:
+            point.label.natural = Label.POSITIONING_LABEL.value
+        else:
+            point.label.natural = path.points[0].label.natural
+                
         path.points.insert(0, point)
-
         return path
 
     def positionCallback(self, msg):
@@ -78,5 +88,5 @@ class MonitorData:
     def reset(self):
         self.state = State.NOT_STARTED
 
-        #self.position = (0.0, 0.0, 0.0) #TODO check
-        self.pos_in_trj = (0.0, 0.0, 0.0)
+        #self.position = (0.0, 0.0, 0.0)
+        #self.pos_in_trj = (0.0, 0.0, 0.0)
