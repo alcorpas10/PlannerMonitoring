@@ -14,7 +14,7 @@ def get_execution_monitor_node(context):
     drone_id = LaunchConfiguration('drone_id')
 
     parameters=[{
-        "drone_id": drone_id,
+        "drone_id": drone_id
     }]
     
     ns = 'mutac/drone' + drone_id.perform(context)
@@ -34,7 +34,7 @@ def get_execution_monitor_node(context):
 
 def generate_launch_description():
     launch_description = LaunchDescription([
-        DeclareLaunchArgument('drone_id', default_value='1'),
+        DeclareLaunchArgument('drone_id', default_value='0'),
         DeclareLaunchArgument('config_file',default_value=''),
         OpaqueFunction(function=get_execution_monitor_node)
     ])

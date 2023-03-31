@@ -1,8 +1,6 @@
 from enum import Enum
 
-from mutac_msgs.msg import LabeledPath, LabeledPoint, Plan, Identifier
-
-from geometry_msgs.msg import Point
+from mutac_msgs.msg import LabeledPath, LabeledPoint
 
 
 class State(Enum):
@@ -20,6 +18,7 @@ class Label(Enum):
 class MonitorData:
     def __init__(self, id):
         self.id = id
+
         self.state = State.NOT_STARTED
         # self.last_state = State.NOT_STARTED # TODO check if necessary to avoid replannings
 
@@ -85,8 +84,9 @@ class MonitorData:
     def positionCallback(self, msg):
         self.position = (msg.position.x, msg.position.y, msg.position.z)
 
-    def reset(self):
+    def reset(self): # TODO check if there are more things to reset 
         self.state = State.NOT_STARTED
 
+        self.waypoints = []
         #self.position = (0.0, 0.0, 0.0)
         #self.pos_in_trj = (0.0, 0.0, 0.0)

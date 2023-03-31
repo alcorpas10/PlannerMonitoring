@@ -2,15 +2,16 @@ import math
 import time
 
 from monitor.monitor_data import MonitorData, State
-from monitor.other_drone import OtherDrone
 
 
 class Drone(MonitorData):
-    def __init__(self, id):
+    def __init__(self, id, homebase):
         super().__init__(id)
         self.battery = 100
+        self.homebase = tuple(homebase)
         self.camera = True
         self.deviated = False
+        self.in_homebase = False
 
         # self.waypoints = []
         # self.inspection_wps = [] # TODO not used
@@ -26,9 +27,13 @@ class Drone(MonitorData):
     def init_other_drones(self, n_drones):
         for i in range(n_drones):
             if i != self.id:
-                self.other_drones[i] = OtherDrone(i)
+                self.other_drones[i] = MonitorData(i)
 
     def checkDrone(self, dist_trj, dist_wp):
+        if self.state == State.LOST and self.in_homebase:
+            self.reset()
+            return 4
+        
         if self.state == State.NOT_STARTED or self.state == State.LOST:
             return -1
 
@@ -36,7 +41,6 @@ class Drone(MonitorData):
             self.state = State.LOST
             return 1
 
-        # wps = self.inspection_wps if self.state == State.ON_MISSION else self.waypoints
         wps = self.waypoints
 
         waypoint_dist = self.distance(self.position, wps[0]['point'])
@@ -144,9 +148,14 @@ class Drone(MonitorData):
     def batteryCallback(self, msg):
         self.battery = msg.percentage
     
-    def positionCallback(self, msg):
-        super().positionCallback(msg)
-        self.time_last_msg = time.time()
+    def positionCallback(self, msg, mode=0):
+        if mode == 0:
+            super().positionCallback(msg)
+            self.time_last_msg = time.time()
+        else:
+            super().positionCallback(msg.pose)
+            self.time_last_msg = msg.stamp.sec + msg.stamp.nanosec * 1e-9
+        self.in_homebase = True if self.position == self.homebase else False        
 
     def generatePlanPaths(self):
         paths = []
