@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 
 from mutac_msgs.msg import Alarm, State, Plan, Identifier, Label #, DroneRequest, UserResponse, DroneComms
-from mutac_msgs.srv import UpdatePlan
+from mutac_msgs.srv import UpdatePlan, RequestWaypoint, AskReplan, ProvideWaypoint
 
 from geometry_msgs.msg import PoseStamped, Pose, Twist, TwistStamped
 from sensor_msgs.msg import BatteryState
@@ -36,8 +36,10 @@ class ExecutionMonitor(Node):
         self.initializeSubscribers()
 
         self.replan_client = self.create_client(UpdatePlan, '/mutac/update_plan')
+        self.ask_replan_client = self.create_client(AskReplan, '/mutac/ask_replan') # TODO new service
+        self.provide_wp_client = self.create_client(ProvideWaypoint, '/mutac/provide_waypoint') # TODO new service
 
-        self.timer_period = 0.5 #TODO the rate was 3, now is 2
+        self.timer_period = 0.5 # TODO the rate was 3, now is 2
         self.timer = self.create_timer(self.timer_period, self.timerCallback)
 
 
@@ -77,6 +79,7 @@ class ExecutionMonitor(Node):
         self.events_sub = self.create_subscription(State, '/mutac/drone_events', self.eventCallback, 100)
         #self.user_sub = self.create_subscription(UserResponse, '/mutac/user_response', self.responseCallback, 100)
         #self.comms_sub = self.create_subscription(DroneComms, '/mutac/drone_comms', self.commsCallback, 100)
+        self.replan_sub = self.create_subscription(RequestWaypoint, '/mutac/request_waypoint', self.replanCallback, 100) # TODO new subscription
 
     def timerCallback(self):
         """At a certain rate it is checked if the mission is going ok"""
@@ -102,7 +105,7 @@ class ExecutionMonitor(Node):
             msg.position.y = pos[1]
             msg.position.z = pos[2]
             self.event_pub.publish(msg)
-            self.askReplan() # TODO call updatePlan service
+            self.askReplan()
             self.drone.waypoints = []
 
         elif event_id == 2: # LANDED
@@ -155,21 +158,44 @@ class ExecutionMonitor(Node):
             self.get_logger().info("********************")
             self.drone.setWaypoints(path)
     
-    def askReplan(self):
-        if len(self.drone.other_drones) > 0:
-            srv = UpdatePlan.Request()
-            srv.plan.paths = self.drone.generatePlanPaths()
+    def replanCallback(self, msg):
+        self.get_logger().info("********************")
+        self.get_logger().info("Replan requested")
+        self.get_logger().info("********************")
+        srv = ProvideWaypoint.Request()
+        srv.identifier.natural = self.id # Identifier
+        srv.path = self.drone.generatePlanPath() # Labeled path
 
-            while not self.replan_client.wait_for_service(timeout_sec=1.0):
-                self.get_logger().info('Service not available, waiting again...')
+        while not self.provide_wp_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Service not available, waiting again...')
+        
+        self.provide_wp_client.call_async(srv)
+
+    # def askReplan(self):
+    #     if len(self.drone.other_drones) > 0: # TODO this should not be done here
+    #         srv = UpdatePlan.Request()
+    #         srv.plan.paths = self.drone.generatePlanPaths()
+
+    #         while not self.replan_client.wait_for_service(timeout_sec=1.0):
+    #             self.get_logger().info('Service not available, waiting again...')
             
-            self.replan_client.call_async(srv)
+    #         self.replan_client.call_async(srv)
+
+    def askReplan(self):
+        srv = AskReplan.Request()
+        srv.identifier.natural = self.id # Identifier
+        srv.path = self.drone.generatePlanPath() # Labeled path
+
+        while not self.ask_replan_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Service not available, waiting again...')
+        
+        self.ask_replan_client.call_async(srv)
 
     def alarmCallback(self, msg):
         if msg.identifier.natural == self.id:
             if msg.alarm == Alarm.CAMERA_FAILURE:
                 self.drone.camera = False
-                self.askReplan() # TODO call updatePlan service       
+                self.askReplan() 
 
 
 class GetParam(Node):
