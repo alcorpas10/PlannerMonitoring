@@ -128,8 +128,8 @@ class Drone(MonitorData):
     def advanceOtherWP(self, drone_id):
         self.other_drones[drone_id].advanceWP()
 
-    def saveState(self, drone_id):
-        self.other_drones[drone_id].saveState()
+    # def saveState(self, drone_id):
+    #     self.other_drones[drone_id].saveState()
 
     def setState(self, drone_id, state):
         self.other_drones[drone_id].setState(state)
@@ -155,7 +155,7 @@ class Drone(MonitorData):
         else:
             super().positionCallback(msg.pose)
             self.time_last_msg = msg.stamp.sec + msg.stamp.nanosec * 1e-9
-        self.in_homebase = True if self.position == self.homebase else False        
+        self.in_homebase = True if self.distance(self.position, self.homebase) < 0.2 else False        
 
     def generatePlanPaths(self):
         paths = []

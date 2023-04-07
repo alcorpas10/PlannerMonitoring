@@ -138,7 +138,7 @@ class ExecutionMonitor(Node):
                 elif msg.state == State.LANDED:
                     self.drone.setState(drone_id, MonitorState.LANDED)
                 elif msg.state == State.LOST:
-                    self.drone.saveState(drone_id)
+                    #self.drone.saveState(drone_id)
                     self.drone.setPosInTrj(drone_id, (msg.position.x, msg.position.y, msg.position.z))
                     self.drone.setState(drone_id, MonitorState.LOST)
                 elif msg.state == State.RECOVERED: # RECOVERED
