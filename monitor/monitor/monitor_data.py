@@ -50,10 +50,12 @@ class MonitorData:
         self.last_label = self.waypoints[0]['label']
         self.waypoints = self.waypoints[1:]
 
-    def generatePlanPath(self):
+    def generatePlanPath(self, asking):
         """Generate the path of the drone to be sent to the planner.
         The path is composed by the current position of the drone and
         the left waypoints of the drone."""
+        if self.state == State.LOST and not asking:
+            return None
         path = LabeledPath()
         path.identifier.natural = self.id if self.state != State.LOST else -1
 
@@ -82,7 +84,7 @@ class MonitorData:
         return path
 
     def positionCallback(self, msg):
-        self.position = (msg.position.x, msg.position.y, msg.position.z)
+        self.position = (msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)
 
     def reset(self): # TODO check if there are more things to reset 
         self.state = State.NOT_STARTED

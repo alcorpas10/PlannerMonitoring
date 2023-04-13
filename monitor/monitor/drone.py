@@ -62,14 +62,18 @@ class Drone(MonitorData):
             return 3
 
         # When the drone has deviated from the trajectory
-        if self.distanceToTrj(self.position, self.last_wp, wps[0]['point']) > dist_trj: # TODO Add here topic 
+        if self.distanceToTrj(self.position, self.last_wp, wps[0]['point']) > dist_trj:
+            print("Drone: ", self.id, " has deviated from the trajectory")
+            print("Position: ", self.position, " Last WP: ", self.last_wp, " Next WP: ", wps[0]['point'], " Distance: ", self.distanceToTrj(self.position, self.last_wp, wps[0]['point']))
             self.pos_in_trj = self.calculateProjection(self.position, self.last_wp, wps[0]['point'])
             self.deviated = True
             self.state = State.LOST
             return 1
 
         # When the drone has deviated from the trajectory
-        if waypoint_dist > self.last_distance and abs(waypoint_dist - self.last_distance) > dist_trj: # TODO Add here topic
+        if waypoint_dist > self.last_distance and abs(waypoint_dist - self.last_distance) > dist_trj:
+            print("Drone: ", self.id, " has deviated from the trajectory")
+            print("Waypoint distance: ", waypoint_dist, " Last distance: ", self.last_distance)
             self.deviated = True
             self.state = State.LOST
             return 1
@@ -148,28 +152,24 @@ class Drone(MonitorData):
     def batteryCallback(self, msg):
         self.battery = msg.percentage
     
-    def positionCallback(self, msg, mode=0):
-        if mode == 0:
-            super().positionCallback(msg)
-            self.time_last_msg = time.time()
-        else:
-            super().positionCallback(msg.pose)
-            self.time_last_msg = msg.stamp.sec + msg.stamp.nanosec * 1e-9
+    def positionCallback(self, msg):
+        super().positionCallback(msg)
+        self.time_last_msg = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         self.in_homebase = True if self.distance(self.position, self.homebase) < 0.2 else False        
 
-    def generatePlanPaths(self):
-        paths = []
+    # def generatePlanPaths(self):
+    #     paths = []
 
-        for drone_id, drone in self.other_drones.items():
-            path = drone.generatePlanPath()
-            #print("Path of drone " + str(drone_id) + ": " + str(path))
-            if path is not None:
-                paths.append(path)
+    #     for drone_id, drone in self.other_drones.items():
+    #         path = drone.generatePlanPath()
+    #         #print("Path of drone " + str(drone_id) + ": " + str(path))
+    #         if path is not None:
+    #             paths.append(path)
         
-        path = self.generatePlanPath()
-        #print("My path " + str(path))
-        paths.append(path)
-        return paths
+    #     path = self.generatePlanPath()
+    #     #print("My path " + str(path))
+    #     paths.append(path)
+    #     return paths
 
     def resetDrone(self, drone_id):
         if drone_id in self.lost_drones.keys():

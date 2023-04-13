@@ -1,11 +1,13 @@
 import rclpy
 from rclpy.node import Node
+from rclpy import qos
 
-from mutac_msgs.msg import Alarm, State, Plan, Identifier, Label #, DroneRequest, UserResponse, DroneComms
-from mutac_msgs.srv import UpdatePlan, RequestWaypoint, AskReplan, ProvideWaypoint
+from mutac_msgs.msg import Alarm, State, Plan, Identifier, LabeledPath #, DroneRequest, UserResponse, DroneComms
+from mutac_msgs.srv import Replan
 
 from geometry_msgs.msg import PoseStamped, Pose, Twist, TwistStamped
 from sensor_msgs.msg import BatteryState
+from std_msgs.msg import Empty
 
 from monitor.monitor_data import State as MonitorState
 
@@ -25,8 +27,9 @@ class ExecutionMonitor(Node):
             self.get_logger().error('Missing parameter \'n_drones\'')
             exit(1)
         
-        self.dist_trj = 5
-        self.dist_wp = 2
+        # self.replanning = False
+        self.dist_trj = 0.5 # TODO no hardcodear, mirar si aumentar mientras replanning
+        self.dist_wp = 0.2
 
         homebase = self.get_parameter('homebase.drone'+str(self.id+1)).value
         self.drone = Drone(self.id, homebase)
@@ -35,9 +38,9 @@ class ExecutionMonitor(Node):
         self.initializePublishers()
         self.initializeSubscribers()
 
-        self.replan_client = self.create_client(UpdatePlan, '/mutac/update_plan')
-        self.ask_replan_client = self.create_client(AskReplan, '/mutac/ask_replan') # TODO new service
-        self.provide_wp_client = self.create_client(ProvideWaypoint, '/mutac/provide_waypoint') # TODO new service
+        # self.replan_client = self.create_client(UpdatePlan, '/mutac/update_plan')
+        self.ask_replan_client = self.create_client(Replan, '/mutac/ask_replan') # TODO new service
+        self.provide_wp_client = self.create_client(Replan, '/mutac/provide_wps') # TODO new service
 
         self.timer_period = 0.5 # TODO the rate was 3, now is 2
         self.timer = self.create_timer(self.timer_period, self.timerCallback)
@@ -50,8 +53,8 @@ class ExecutionMonitor(Node):
         #self.comms_pub = self.create_publisher(DroneComms, '/mutac/drone_comms', 100)
 
     def initializeSubscribers(self):
+        self.pose_subs = []
         if self.mode == 0:
-            self.pose_subs = []
             for i in range(self.n_drones):
                 if i != self.id:
                     self.pose_subs.append(self.create_subscription(Pose, '/mutac/drone'+str(i+1)+'/drone_pose', self.drone.other_drones[i].positionCallback, 100))
@@ -61,28 +64,29 @@ class ExecutionMonitor(Node):
             self.battery_sub = self.create_subscription(BatteryState, '/mutac/drone'+str(self.id)+'/battery_state', self.drone.batteryCallback, 100)
 
         elif self.mode == 1:
-            uav_name = "drone_sim_"
+            uav_name = "/drone_sim_"
             # uav_name = "cf"
             for i in range(self.n_drones):
                 if i != self.id:
-                    self.pose_subs.append(self.create_subscription(PoseStamped, uav_name+str(i)+'/self_localization/pose', 
-                                                                   lambda msg: self.drone.other_drones[i].positionCallback(msg.pose), 100))
-            uav_name = "drone_sim_"+str(self.id)
+                    self.pose_subs.append(self.create_subscription(PoseStamped, uav_name+str(i)+'/self_localization/pose', self.drone.other_drones[i].positionCallback, qos.qos_profile_sensor_data))
+            uav_name += str(self.id)
             # uav_name = "cf" + str(self.id)
-            self.pose_sub = self.create_subscription(PoseStamped, uav_name+'/self_localization/pose', lambda msg: self.drone.positionCallback(msg, self.mode), 100)
+            self.pose_sub = self.create_subscription(PoseStamped, uav_name+'/self_localization/pose', self.drone.positionCallback, qos.qos_profile_sensor_data)
             #self.twist_sub = self.create_subscription(TwistStamped, uav_name+'/self_localization/twist', self.drone.velocityCallback, 100)
             #self.alarm_sub = self.create_subscription(Alarm, '/mutac/drone_alarm', self.alarmCallback, 100) # Doesn't exist in aerostack
-            self.battery_sub = self.create_subscription(BatteryState, uav_name+'/sensor_measurements/battery', self.drone.batteryCallback, 100)
+            self.battery_sub = self.create_subscription(BatteryState, uav_name+'/sensor_measurements/battery', self.drone.batteryCallback, qos.qos_profile_sensor_data)
 
         self.trj_sub = self.create_subscription(Plan, '/mutac/real_planned_paths', self.trajectoryCallback, 100)
         self.covered_sub = self.create_subscription(Identifier, '/mutac/covered_points', self.waypointCallback, 100)
         self.events_sub = self.create_subscription(State, '/mutac/drone_events', self.eventCallback, 100)
         #self.user_sub = self.create_subscription(UserResponse, '/mutac/user_response', self.responseCallback, 100)
         #self.comms_sub = self.create_subscription(DroneComms, '/mutac/drone_comms', self.commsCallback, 100)
-        self.replan_sub = self.create_subscription(RequestWaypoint, '/mutac/request_waypoint', self.replanCallback, 100) # TODO new subscription
+        self.replan_sub = self.create_subscription(Empty, '/mutac/request_wps', self.replanCallback, 100) # TODO check the published message
 
     def timerCallback(self):
         """At a certain rate it is checked if the mission is going ok"""
+        # if self.replanning:
+        #     event_id = self.drone.checkDrone(self.dist_trj, self.dist_wp+0.3)
         event_id = self.drone.checkDrone(self.dist_trj, self.dist_wp)
 
         if event_id == 0: # MISSION_FINISHED
@@ -154,22 +158,24 @@ class ExecutionMonitor(Node):
         # self.get_logger().info("Trajectory received")
         # self.get_logger().info("********************")
         for path in msg.paths:
-            self.get_logger().info("Path "+str(path.identifier.natural) + ": "+str(path.points[0]))
+            self.get_logger().info("Path "+str(path.identifier.natural) + ": "+str(len(path.points)))
             self.get_logger().info("********************")
             self.drone.setWaypoints(path)
+        
+        # self.replanning = False
     
     def replanCallback(self, msg):
-        self.get_logger().info("********************")
-        self.get_logger().info("Replan requested")
-        self.get_logger().info("********************")
-        srv = ProvideWaypoint.Request()
-        srv.identifier.natural = self.id # Identifier
-        srv.path = self.drone.generatePlanPath() # Labeled path
+        path = self.drone.generatePlanPath(False)
+        # self.replanning = True
 
-        while not self.provide_wp_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('Service not available, waiting again...')
-        
-        self.provide_wp_client.call_async(srv)
+        if path != None:
+            srv = Replan.Request()
+            srv.path = path
+
+            while not self.provide_wp_client.wait_for_service(timeout_sec=1.0):
+                self.get_logger().info('Service not available, waiting again...')
+            
+            self.provide_wp_client.call_async(srv)
 
     # def askReplan(self):
     #     if len(self.drone.other_drones) > 0: # TODO this should not be done here
@@ -182,9 +188,9 @@ class ExecutionMonitor(Node):
     #         self.replan_client.call_async(srv)
 
     def askReplan(self):
-        srv = AskReplan.Request()
-        srv.identifier.natural = self.id # Identifier
-        srv.path = self.drone.generatePlanPath() # Labeled path
+        srv = Replan.Request()
+        srv.path = self.drone.generatePlanPath(True)
+        print("ASKING REPLAN: "+str(len(srv.path.points)))
 
         while not self.ask_replan_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Service not available, waiting again...')
