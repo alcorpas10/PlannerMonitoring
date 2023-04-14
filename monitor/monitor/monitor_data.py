@@ -4,6 +4,7 @@ from mutac_msgs.msg import LabeledPath, LabeledPoint
 
 
 class State(Enum):
+    """Enumerate that contains the possible states of a drone"""
     NOT_STARTED = 0
     ON_MISSION = 1
     MISSION_FINISHED = 2
@@ -12,15 +13,17 @@ class State(Enum):
     LOST = 5
 
 class Label(Enum):
+    """Enumerate that contains the possible labels of a waypoint"""
     POSITIONING_LABEL = 0
     COVERING_LABEL = 1
 
 class MonitorData:
+    """Class that contains the basic data of a drone"""
     def __init__(self, id):
+        """Initializes the drone object"""
         self.id = id
 
         self.state = State.NOT_STARTED
-        # self.last_state = State.NOT_STARTED # TODO check if necessary to avoid replannings
 
         self.position = (0.0, 0.0, 0.0)
         self.pos_in_trj = (0.0, 0.0, 0.0)
@@ -31,13 +34,15 @@ class MonitorData:
         
 
     def setState(self, state):
+        """Setter for the state of the drone"""
         self.state = state
         if state == State.LOST:
             self.waypoints = []
 
     def setWaypoints(self, path):
-        """Set the waypoints of the drone starting from the second point
-        of the path. The first point is the current position of the drone."""
+        """Saves the waypoints of the path that the drone is going to follow 
+        starting from the second point. The first one is the current position
+        of the drone"""
         self.state = State.ON_MISSION
         self.waypoints = []
         for l_point in path.points[1:]:
@@ -46,14 +51,16 @@ class MonitorData:
             self.waypoints.append({'label': label, 'point': point})
 
     def advanceWP(self):
-        """Remove the first waypoint left of the drone."""
+        """Removes the first waypoint left of the drone."""
         self.last_label = self.waypoints[0]['label']
         self.waypoints = self.waypoints[1:]
 
     def generatePlanPath(self, asking):
-        """Generate the path of the drone to be sent to the planner.
+        """Generates the path of the drone to be sent to the replanner.
         The path is composed by the current position of the drone and
         the left waypoints of the drone."""
+        # If the drone is lost and it is not asking for the replanning it
+        # does not need to send anything
         if self.state == State.LOST and not asking:
             return None
         path = LabeledPath()
@@ -74,7 +81,6 @@ class MonitorData:
             l_point.label.natural = waypoint['label']
             path.points.append(l_point)
 
-        #point.label.natural = Label.POSITIONING_LABEL if len(path.points) <= 0 or path.points[0].label.natural != self.last_label else path.points[0].label.natural
         if len(path.points) <= 0 or path.points[0].label.natural != self.last_label:
             point.label.natural = Label.POSITIONING_LABEL.value
         else:
@@ -84,11 +90,12 @@ class MonitorData:
         return path
 
     def positionCallback(self, msg):
+        """Callback for the position of the drone"""
         self.position = (msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)
 
-    def reset(self): # TODO check if there are more things to reset 
+    def reset(self): # TODO check if there are more things to reset
+        """Resets the drone to the initial state"""
         self.state = State.NOT_STARTED
 
         self.waypoints = []
-        #self.position = (0.0, 0.0, 0.0)
-        #self.pos_in_trj = (0.0, 0.0, 0.0)
+        
