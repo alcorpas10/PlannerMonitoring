@@ -1,4 +1,5 @@
 import rclpy
+from rclpy import qos
 from rclpy.node import Node
 
 from mutac_msgs.msg import Plan
@@ -10,14 +11,12 @@ import time
 
 class Replanner(Node):
     def __init__(self):
-        super().__init__('replanner')
+        super().__init__('Replanning manager')
 
-        self.paths_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, 100)
-        self.paths_pub = self.create_publisher(Plan, '/mutac/real_planned_paths', 100)
         self.replan_pub = self.create_publisher(Empty, '/mutac/request_wps', 100)
 
         self.ask_replan_srv = self.create_service(Replan, '/mutac/ask_replan', self.replanCallback)
-        self.provide_wp_srv = self.create_service(Replan, '/mutac/provide_wps', self.waypointCallback)
+        self.provide_wp_srv = self.create_service(Replan, '/mutac/provide_wps', self.pathCallback)
 
         self.replan_client = self.create_client(UpdatePlan, '/mutac/update_plan')
 
@@ -41,10 +40,6 @@ class Replanner(Node):
             self.get_logger().info("Not enough paths to replan")
         self.plan = Plan()
         self.timer.cancel()
-
-    def trajectoryCallback(self, msg):
-        # TODO add height
-        self.paths_pub.publish(msg)
     
     def replanCallback(self, request, response):
         self.get_logger().info("********************")
@@ -60,7 +55,7 @@ class Replanner(Node):
         self.get_logger().debug("Time: "+str(time.time()))
         return response
 
-    def waypointCallback(self, request, response):
+    def pathCallback(self, request, response):
         self.plan.paths.append(request.path)
         return response
 

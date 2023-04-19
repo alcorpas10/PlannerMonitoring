@@ -90,11 +90,10 @@ class ExecutionMonitor(Node):
         self.imu_sub = self.create_subscription(Imu, uav_name+'/sensor_measurements/imu', self.imuCallback, qos.qos_profile_sensor_data)
 
         # Mutac topics
-        self.trj_sub = self.create_subscription(Plan, '/mutac/real_planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
-        #self.covered_sub = self.create_subscription(Identifier, '/mutac/covered_points', self.waypointCallback, 100)
+        self.trj_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
         #self.events_sub = self.create_subscription(State, '/mutac/drone_events', self.eventCallback, 100)
         self.replan_sub = self.create_subscription(Empty, '/mutac/request_wps', self.replanCallback, 100) # TODO check the published message
-        #self.alarm_sub = self.create_subscription(Alarm, '/mutac/drone_alarm', self.alarmCallback, 100) # Doesn't exist in aerostack
+        self.alarm_sub = self.create_subscription(Alarm, '/mutac/drone_alarm', self.alarmCallback, 100) # TODO Doesn't exist in Aerostack by now
         #self.user_sub = self.create_subscription(UserResponse, '/mutac/user_response', self.responseCallback, 100)
         #self.comms_sub = self.create_subscription(DroneComms, '/mutac/drone_comms', self.commsCallback, 100)
 
@@ -104,24 +103,20 @@ class ExecutionMonitor(Node):
         event_id = self.drone.checkDrone(self.dist_trj, self.dist_wp)
 
         if event_id == 0: # MISSION_FINISHED
-            pos = self.drone.pos_in_trj if self.drone.deviated else self.drone.position
             msg = State()
             msg.identifier.natural = self.id
             msg.state = event_id
-            msg.position.x = pos[0]
-            msg.position.y = pos[1]
-            msg.position.z = pos[2]
             self.event_pub.publish(msg)
             self.drone.reset()
 
         elif event_id == 1: # LOST
-            pos = self.drone.pos_in_trj if self.drone.deviated else self.drone.position
             msg = State()
             msg.identifier.natural = self.id
             msg.state = event_id
-            msg.position.x = pos[0]
-            msg.position.y = pos[1]
-            msg.position.z = pos[2]
+            if self.drone.deviated or not self.drone.camera_ok:
+                msg.type = State.HOMEBASE
+            else:
+                msg.type = State.LAND                
             self.event_pub.publish(msg)
             self.askReplan()
             self.drone.waypoints = []
@@ -132,7 +127,7 @@ class ExecutionMonitor(Node):
             msg.state = event_id
             self.event_pub.publish(msg)
 
-        elif event_id == 3: # WAYPOINT
+        elif event_id == 3: # WP ARRIVED
             msg = Identifier()
             msg.natural = self.id
             self.covered_pub.publish(msg)
@@ -143,6 +138,12 @@ class ExecutionMonitor(Node):
             msg.state = State.RECOVERED
             self.event_pub.publish(msg)
             self.askReplan()
+
+        elif event_id == 5: # WP REPEATED
+            msg = State()
+            msg.identifier.natural = self.id
+            msg.state = State.WP_REPEATED
+            self.event_pub.publish(msg)
 
     def trajectoryCallback(self, msg):
         """Callback for the trajectory topic. It is used to set the waypoints of the drone"""
@@ -159,7 +160,7 @@ class ExecutionMonitor(Node):
     def imuCallback(self, msg):
         """Callback for the IMU topic. It is used to search for non-sense values"""
         # Writes the IMU value in the file
-        self.file.write(str(msg.header.stamp.sec)+":"+str(msg.header.stamp.nanosec)+";"+str(msg.angular_velocity.x)+","+str(msg.angular_velocity.y)+","+str(msg.angular_velocity.z)+";"+str(msg.linear_acceleration.x)+","+str(msg.linear_acceleration.y)+","+str(msg.linear_acceleration.z)+";"+str(msg.orientation.x)+","+str(msg.orientation.y)+","+str(msg.orientation.z)+","+str(msg.orientation.w)+"\n")
+        # self.file.write(str(msg.header.stamp.sec)+":"+str(msg.header.stamp.nanosec)+";"+str(msg.angular_velocity.x)+","+str(msg.angular_velocity.y)+","+str(msg.angular_velocity.z)+";"+str(msg.linear_acceleration.x)+","+str(msg.linear_acceleration.y)+","+str(msg.linear_acceleration.z)+";"+str(msg.orientation.x)+","+str(msg.orientation.y)+","+str(msg.orientation.z)+","+str(msg.orientation.w)+"\n")
 
         # if msg.orientation.x > self.max_orientation[0]:
         #     self.max_orientation = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
@@ -234,11 +235,14 @@ class ExecutionMonitor(Node):
         self.ask_replan_client.call_async(srv)
 
     def alarmCallback(self, msg):
-        """Callback for the alarm topic. In Aerostack it is not used"""
+        """Callback for the alarm topic. When error detection is done in other node and
+        an error must be monitored, it is sent through this topic"""
         if msg.identifier.natural == self.id:
             if msg.alarm == Alarm.CAMERA_FAILURE:
-                self.drone.camera = False
+                self.drone.camera_ok = False
                 self.askReplan()
+            elif msg.alarm == Alarm.PHOTO_ERROR or msg.alarm == Alarm.VIBRATION_ERROR:
+                self.drone.repeatWP()
 
 
 class GetParam(Node):

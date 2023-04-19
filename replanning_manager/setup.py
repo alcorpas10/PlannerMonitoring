@@ -2,7 +2,7 @@ import os
 from glob import glob
 from setuptools import setup
 
-package_name = 'replanner'
+package_name = 'replanning_manager'
 
 setup(
     name=package_name,
@@ -18,12 +18,12 @@ setup(
     zip_safe=True,
     maintainer='Alejandro Corpas Calvo',
     maintainer_email='al.corpas@alumnos.upm.es',
-    description='Planner wrapper that adds new functionalities',
+    description='Planner wrapper that makes the path collecting for the replanning',
     license='BSD-3',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'replanner = replanner.replanner:main'
+            'replanning_manager = replanning_manager.replanning_manager:main'
         ],
     },
 )

@@ -10,10 +10,11 @@ class Drone(MonitorData):
         super().__init__(id)
         self.battery = 100
         self.homebase = tuple(homebase)
-        self.camera = True
+        self.camera_ok = True
         self.deviated = False
         self.in_homebase = False
         self.imu_ok = True
+        self.repeat = False
 
         self.last_distance = float("inf")
         self.last_wp = self.position
@@ -32,7 +33,7 @@ class Drone(MonitorData):
             return -1
 
         # When the drone camera is broken
-        if not self.camera:
+        if not self.camera_ok:
             self.state = State.LOST
             return 1
         
@@ -49,6 +50,13 @@ class Drone(MonitorData):
         wps = self.waypoints
 
         waypoint_dist = self.distance(self.position, wps[0]['point'])
+
+        # When the drone has to repeat the previous waypoint
+        if self.repeat:
+            self.repeat = False
+            # TODO check what happens when the alarm is activated several times in a row
+            # TODO maybe use a new monitor data state
+            return 5
 
         # When the drone is in the last waypoint
         if len(wps) == 1 and waypoint_dist <= dist_wp:
@@ -133,6 +141,13 @@ class Drone(MonitorData):
         self.last_wp = self.waypoints[0]['point']
         super().advanceWP()
 
+    def repeatWP(self):
+        """Repeats the last covered waypoint. It is used when there is a minor error
+        during the drone inspection that does not require a replan"""
+        self.last_distance = float("inf")
+        self.waypoints.insert(0, {'label': self.last_label, 'point': self.last_wp})
+        self.repeat = True
+
     def batteryCallback(self, msg):
         """Callback that updates the drone battery"""
         self.battery = msg.percentage
@@ -156,7 +171,7 @@ class Drone(MonitorData):
         super().reset()
         
         self.battery = 100 # TODO check how the real battery works
-        self.camera = True
+        self.camera_ok = True
         self.deviated = False
 
         self.last_distance = float("inf")

@@ -8,9 +8,9 @@ import os
 
 def get_replanner_node(context):
     replanner_node = Node(
-        package='replanner',
-        executable='replanner',
-        name='replanner',
+        package='replanning_manager',
+        executable='replanning_manager',
+        name='replanning_manager',
         output='screen',
     )
 

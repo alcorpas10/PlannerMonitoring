@@ -25,7 +25,7 @@ class Viewer(Node):
         self.left_pubs = []
         self.covered_pubs = []
 
-        self.trj_sub = self.create_subscription(Plan, '/mutac/real_planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
+        self.trj_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
         self.covered_sub = self.create_subscription(Identifier, '/mutac/covered_points', self.coveredCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
 
         for i in range(self.n_drones):
