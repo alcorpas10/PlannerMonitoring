@@ -13,6 +13,7 @@ class Drone(MonitorData):
         self.camera = True
         self.deviated = False
         self.in_homebase = False
+        self.imu_ok = True
 
         self.last_distance = float("inf")
         self.last_wp = self.position
@@ -30,8 +31,18 @@ class Drone(MonitorData):
         if self.state == State.NOT_STARTED or self.state == State.LOST:
             return -1
 
-        # When the drone has very low battery or the camera is broken
-        if not self.camera or self.battery <= 5:
+        # When the drone camera is broken
+        if not self.camera:
+            self.state = State.LOST
+            return 1
+        
+        # When the drone has very low battery
+        if self.battery <= 5:
+            self.state = State.LOST
+            return 1
+        
+        # When the IMU is too high
+        if not self.imu_ok:
             self.state = State.LOST
             return 1
 
@@ -131,6 +142,14 @@ class Drone(MonitorData):
         super().positionCallback(msg)
         self.time_last_msg = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         self.in_homebase = True if self.distance(self.position, self.homebase) < 0.2 else False
+
+    def imuCallback(self, msg):
+        angular_vel = msg.angular_velocity
+        linear_acc = msg.linear_acceleration
+        if abs(angular_vel.x) > 0.1 or abs(angular_vel.y) > 0.1 or abs(angular_vel.z) > 0.1:
+            self.imu_ok = False
+        if abs(linear_acc.x) > 0.1 or abs(linear_acc.y) > 0.1 or abs(linear_acc.z) > 0.1:
+            self.imu_ok = False
 
     def reset(self):
         """Resets the drone to its initial state"""
