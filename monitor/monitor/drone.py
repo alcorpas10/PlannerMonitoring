@@ -13,7 +13,7 @@ class Drone(MonitorData):
         self.camera_ok = True
         self.deviated = False
         self.in_homebase = False
-        self.imu_ok = True
+        self.imu_err_count = 0
         self.repeat = False
 
         self.last_distance = float("inf")
@@ -25,6 +25,7 @@ class Drone(MonitorData):
         """Checks the drone status and returns the event code"""
         # When the drone reaches the homebase after getting lost
         if self.state == State.LOST and self.in_homebase:
+            print("Drone ", self.id, " was recovered")
             self.reset()
             return 4
         
@@ -34,17 +35,21 @@ class Drone(MonitorData):
 
         # When the drone camera is broken
         if not self.camera_ok:
+            print("Drone ", self.id, " has a broken camera")
             self.state = State.LOST
             return 1
         
         # When the drone has very low battery
         if self.battery <= 5:
+            print("Drone ", self.id, " has very low battery")
             self.state = State.LOST
             return 1
         
-        # When the IMU is too high
-        if not self.imu_ok:
+        # When the IMU is too high several times
+        if self.imu_err_count > 2:
+            print("Drone ", self.id, " has IMU problems")
             self.state = State.LOST
+            self.imu_err_count = 0
             return 1
 
         wps = self.waypoints
@@ -53,9 +58,9 @@ class Drone(MonitorData):
 
         # When the drone has to repeat the previous waypoint
         if self.repeat:
+            print("Drone ", self.id, " needs to repeat the last waypoint")
             self.repeat = False
             # TODO check what happens when the alarm is activated several times in a row
-            # TODO maybe use a new monitor data state
             return 5
 
         # When the drone is in the last waypoint
@@ -76,7 +81,7 @@ class Drone(MonitorData):
 
         # When the drone has deviated from the trajectory
         if self.distanceToTrj(self.position, self.last_wp, wps[0]['point']) > dist_trj:
-            print("Drone: ", self.id, " has deviated from the trajectory")
+            print("Drone ", self.id, " has deviated from the trajectory")
             print("Position: ", self.position, " Last WP: ", self.last_wp, " Next WP: ", wps[0]['point'], " Distance: ", self.distanceToTrj(self.position, self.last_wp, wps[0]['point']))
             self.pos_in_trj = self.calculateProjection(self.position, self.last_wp, wps[0]['point'])
             self.deviated = True
@@ -85,7 +90,7 @@ class Drone(MonitorData):
 
         # When the drone has deviated from the trajectory
         if waypoint_dist > self.last_distance and abs(waypoint_dist - self.last_distance) > dist_trj:
-            print("Drone: ", self.id, " has deviated from the trajectory")
+            print("Drone ", self.id, " has deviated from the trajectory")
             print("Waypoint distance: ", waypoint_dist, " Last distance: ", self.last_distance)
             self.deviated = True
             self.state = State.LOST
@@ -161,10 +166,14 @@ class Drone(MonitorData):
     def imuCallback(self, msg):
         angular_vel = msg.angular_velocity
         linear_acc = msg.linear_acceleration
-        if abs(angular_vel.x) > 0.1 or abs(angular_vel.y) > 0.1 or abs(angular_vel.z) > 0.1:
-            self.imu_ok = False
-        if abs(linear_acc.x) > 0.1 or abs(linear_acc.y) > 0.1 or abs(linear_acc.z) > 0.1:
-            self.imu_ok = False
+        if abs(angular_vel.x) > 1 or abs(angular_vel.y) > 1.5 or abs(angular_vel.z) > 0.25:
+            self.imu_err_count += 1
+        if abs(angular_vel.x) < -1 or abs(angular_vel.y) < -1.5 or abs(angular_vel.z) < -0.25:
+            self.imu_err_count += 1
+        if abs(linear_acc.x) > 1.5 or abs(linear_acc.y) > 1.5 or abs(linear_acc.z) > 15.0:
+            self.imu_err_count += 1
+        if abs(linear_acc.x) < -1 or abs(linear_acc.y) < -1 or abs(linear_acc.z) < 6.0:
+            self.imu_err_count += 1
 
     def reset(self):
         """Resets the drone to its initial state"""

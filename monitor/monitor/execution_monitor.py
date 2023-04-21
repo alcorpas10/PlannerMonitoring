@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy import qos
 
-from mutac_msgs.msg import Alarm, State, Plan, Identifier, LabeledPath #, DroneRequest, UserResponse, DroneComms
+from mutac_msgs.msg import Alarm, State, Plan, Identifier
 from mutac_msgs.srv import Replan
 
 from geometry_msgs.msg import PoseStamped, TwistStamped
@@ -43,32 +43,6 @@ class ExecutionMonitor(Node):
         self.timer_period = 0.5 # TODO the rate was 3, now is 2
         self.timer = self.create_timer(self.timer_period, self.timerCallback)
 
-        # Opens the file to save the data
-        self.file = open("monitor_data.txt", "w")
-
-        # self.max_orientation_x = (-100.0, -100.0, -100.0, -100.0)
-        # self.max_orientation_y = (-100.0, -100.0, -100.0, -100.0)
-        # self.max_orientation_z = (-100.0, -100.0, -100.0, -100.0)
-        # self.max_orientation_w = (-100.0, -100.0, -100.0, -100.0)
-        # self.min_orientation_x = (100.0, 100.0, 100.0, 100.0)
-        # self.min_orientation_y = (100.0, 100.0, 100.0, 100.0)
-        # self.min_orientation_z = (100.0, 100.0, 100.0, 100.0)
-        # self.min_orientation_w = (100.0, 100.0, 100.0, 100.0)
-
-        # self.max_angular_velocity_x = (-100.0, -100.0, -100.0)
-        # self.max_angular_velocity_y = (-100.0, -100.0, -100.0)
-        # self.max_angular_velocity_z = (-100.0, -100.0, -100.0)
-        # self.min_angular_velocity_x = (100.0, 100.0, 100.0)
-        # self.min_angular_velocity_y = (100.0, 100.0, 100.0)
-        # self.min_angular_velocity_z = (100.0, 100.0, 100.0)
-
-        # self.max_linear_acceleration_x = (-100.0, -100.0, -100.0)
-        # self.max_linear_acceleration_y = (-100.0, -100.0, -100.0)
-        # self.max_linear_acceleration_z = (-100.0, -100.0, -100.0)
-        # self.min_linear_acceleration_x = (100.0, 100.0, 100.0)
-        # self.min_linear_acceleration_y = (100.0, 100.0, 100.0)
-        # self.min_linear_acceleration_z = (100.0, 100.0, 100.0)
-
 
     def initializePublishers(self):
         """Initializes the publishers"""
@@ -81,13 +55,13 @@ class ExecutionMonitor(Node):
         """Initializes the subscribers. The topics are the ones used in Aerostack. To monitor
         real drones the 'cf' uav_name should be used instead of 'drone_sim'"""
         uav_name = "/drone_sim_"+str(self.id)
-        # uav_name = "cf"+str(self.id)
+        # uav_name = "/cf"+str(self.id)
 
         # Aerostack topics
         self.pose_sub = self.create_subscription(PoseStamped, uav_name+'/self_localization/pose', self.drone.positionCallback, qos.qos_profile_sensor_data)
         #self.twist_sub = self.create_subscription(TwistStamped, uav_name+'/self_localization/twist', self.drone.velocityCallback, 100)
         self.battery_sub = self.create_subscription(BatteryState, uav_name+'/sensor_measurements/battery', self.drone.batteryCallback, qos.qos_profile_sensor_data)
-        self.imu_sub = self.create_subscription(Imu, uav_name+'/sensor_measurements/imu', self.imuCallback, qos.qos_profile_sensor_data)
+        self.imu_sub = self.create_subscription(Imu, uav_name+'/sensor_measurements/imu', self.drone.imuCallback, qos.qos_profile_sensor_data)
 
         # Mutac topics
         self.trj_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
@@ -108,6 +82,7 @@ class ExecutionMonitor(Node):
             msg.state = event_id
             self.event_pub.publish(msg)
             self.drone.reset()
+            self.askReplan() # TODO to let the drone help once it has finished his mission
 
         elif event_id == 1: # LOST
             msg = State()
@@ -147,64 +122,14 @@ class ExecutionMonitor(Node):
 
     def trajectoryCallback(self, msg):
         """Callback for the trajectory topic. It is used to set the waypoints of the drone"""
-        self.get_logger().debug("********************")
+        #self.get_logger().debug("********************")
+        self.get_logger().info("********************")
         for path in msg.paths:
-            self.get_logger().debug("Path "+str(path.identifier.natural) + ": "+str(len(path.points)))
-            self.get_logger().debug("********************")
+            #self.get_logger().debug("Path "+str(path.identifier.natural) + ": "+str(len(path.points)))
+            self.get_logger().info("Path "+str(path.identifier.natural) + ": "+str(len(path.points)))
+            #self.get_logger().debug("********************")
+            self.get_logger().info("********************")
             self.drone.setWaypoints(path)
-
-        # self.get_logger().info("Max orientation: "+str(self.max_orientation)+", min orientation: "+str(self.min_orientation))
-        # self.get_logger().info("Max angular velocity: "+str(self.max_angular_velocity)+", min angular velocity: "+str(self.min_angular_velocity))
-        # self.get_logger().info("Max linear acceleration: "+str(self.max_linear_acceleration)+", min linear acceleration: "+str(self.min_linear_acceleration))
-
-    def imuCallback(self, msg):
-        """Callback for the IMU topic. It is used to search for non-sense values"""
-        # Writes the IMU value in the file
-        # self.file.write(str(msg.header.stamp.sec)+":"+str(msg.header.stamp.nanosec)+";"+str(msg.angular_velocity.x)+","+str(msg.angular_velocity.y)+","+str(msg.angular_velocity.z)+";"+str(msg.linear_acceleration.x)+","+str(msg.linear_acceleration.y)+","+str(msg.linear_acceleration.z)+";"+str(msg.orientation.x)+","+str(msg.orientation.y)+","+str(msg.orientation.z)+","+str(msg.orientation.w)+"\n")
-
-        # if msg.orientation.x > self.max_orientation[0]:
-        #     self.max_orientation = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
-        # if msg.orientation.y > self.max_orientation[1]:
-        #     self.max_orientation = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
-        # if msg.orientation.z > self.max_orientation[2]:
-        #     self.max_orientation = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
-        # if msg.orientation.w > self.max_orientation[3]:
-        #     self.max_orientation = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
-        # if msg.orientation.x < self.min_orientation[0]:
-        #     self.min_orientation = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
-        # if msg.orientation.y < self.min_orientation[1]:
-        #     self.min_orientation = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
-        # if msg.orientation.z < self.min_orientation[2]:
-        #     self.min_orientation = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
-        # if msg.orientation.w < self.min_orientation[3]:
-        #     self.min_orientation = (msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w)
-
-        # if msg.angular_velocity.x > self.max_angular_velocity_x[0]:
-        #     self.max_angular_velocity_x = (msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z)
-        # if msg.angular_velocity.y > self.max_angular_velocity_y[1]:
-        #     self.max_angular_velocity_y = (msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z)
-        # if msg.angular_velocity.z > self.max_angular_velocity_z[2]:
-        #     self.max_angular_velocity_z = (msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z)
-        # if msg.angular_velocity.x < self.min_angular_velocity_x[0]:
-        #     self.min_angular_velocity_x = (msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z)
-        # if msg.angular_velocity.y < self.min_angular_velocity_y[1]:
-        #     self.min_angular_velocity_y = (msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z)
-        # if msg.angular_velocity.z < self.min_angular_velocity_z[2]:
-        #     self.min_angular_velocity_z = (msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z)
-
-        # if msg.linear_acceleration.x > self.max_linear_acceleration_x[0]:
-        #     self.max_linear_acceleration_x = (msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z)
-        # if msg.linear_acceleration.y > self.max_linear_acceleration_y[1]:
-        #     self.max_linear_acceleration_y = (msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z)
-        # if msg.linear_acceleration.z > self.max_linear_acceleration_z[2]:
-        #     self.max_linear_acceleration_z = (msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z)
-        # if msg.linear_acceleration.x < self.min_linear_acceleration_x[0]:
-        #     self.min_linear_acceleration_x = (msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z)
-        # if msg.linear_acceleration.y < self.min_linear_acceleration_y[1]:
-        #     self.min_linear_acceleration_y = (msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z)
-        # if msg.linear_acceleration.z < self.min_linear_acceleration_z[2]:
-        #     self.min_linear_acceleration_z = (msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z) 
-        pass
 
     def replanCallback(self, msg):
         """Callback for the replan topic. When accessed the planner 
@@ -240,7 +165,6 @@ class ExecutionMonitor(Node):
         if msg.identifier.natural == self.id:
             if msg.alarm == Alarm.CAMERA_FAILURE:
                 self.drone.camera_ok = False
-                self.askReplan()
             elif msg.alarm == Alarm.PHOTO_ERROR or msg.alarm == Alarm.VIBRATION_ERROR:
                 self.drone.repeatWP()
 

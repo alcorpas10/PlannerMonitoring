@@ -52,7 +52,8 @@ class Viewer(Node):
                 self.left_points[path_id].append([p.point.x, p.point.y, p.point.z, p.label])
             self.covered_points[path_id].append([path.points[0].point.x, path.points[0].point.y, path.points[0].point.z, path.points[0].label])
         for i in range(self.n_drones):
-            self.get_logger().debug("Drone " + str(i) + " has " + str(len(self.left_points[i])) + " left points")
+            #self.get_logger().debug("Drone " + str(i) + " has " + str(len(self.left_points[i])) + " left points")
+            self.get_logger().info("Drone " + str(i) + " has " + str(len(self.left_points[i])) + " left points")
 
     def positionCallback(self, msg, id):
         """Saves the new position of the drone and appends it at the end of the covered points

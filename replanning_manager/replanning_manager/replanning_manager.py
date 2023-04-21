@@ -11,7 +11,7 @@ import time
 
 class Replanner(Node):
     def __init__(self):
-        super().__init__('Replanning manager')
+        super().__init__('Replanning_manager')
 
         self.replan_pub = self.create_publisher(Empty, '/mutac/request_wps', 100)
 
