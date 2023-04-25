@@ -82,7 +82,7 @@ class ExecutionMonitor(Node):
             msg.state = event_id
             self.event_pub.publish(msg)
             self.drone.reset()
-            self.askReplan() # TODO to let the drone help once it has finished his mission
+            # self.askReplan() # TODO to let the drone help once it has finished his mission
 
         elif event_id == 1: # LOST
             msg = State()
