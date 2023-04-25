@@ -90,6 +90,9 @@ class ExecutionMonitor(Node):
             msg.state = event_id
             if self.drone.deviated or not self.drone.camera_ok:
                 msg.type = State.HOMEBASE
+                msg.position.x = self.drone.homebase[0]
+                msg.position.y = self.drone.homebase[1]
+                msg.position.z = self.drone.homebase[2]
             else:
                 msg.type = State.LAND                
             self.event_pub.publish(msg)
