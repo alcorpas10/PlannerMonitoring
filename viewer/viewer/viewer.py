@@ -39,7 +39,7 @@ class Viewer(Node):
             self.left_pubs.append(self.create_publisher(Path, publisher + "_left", 10))
             self.covered_pubs.append(self.create_publisher(Path, publisher + "_covered", 10))
         
-        self.timer_period = 0.5
+        self.timer_period = 0.1
         self.timer = self.create_timer(self.timer_period, self.timerCallback)
 
 
@@ -79,13 +79,17 @@ class Viewer(Node):
             self.covered_points[id].pop()
         if len(self.left_points[id]) > 0:
             if len(self.covered_points[id]) > 0:
-                pos_in_trj = self.calculateProjection(pose, self.covered_points[id][-1], self.left_points[id][0])
-                self.covered_points[id].append(pos_in_trj)
+                if self.notZero(self.covered_points[id][-1]) and self.notZero(self.left_points[id][0]):
+                    pos_in_trj = self.calculateProjection(pose, self.covered_points[id][-1], self.left_points[id][0])
+                    self.covered_points[id].append(pos_in_trj)
             else:
                 self.covered_points[id].append(pose)
 
         self.left_points[id].insert(0, pose)
     
+    def notZero(self, v):
+        return v[0] != 0 or v[1] != 0 or v[2] != 0 
+
     def calculateProjection(self, pos, wp1, wp2):
         """Returns the projection of a point in a line"""
         AM = (pos[0] - wp1[0], pos[1] - wp1[1], pos[2] - wp1[2])
