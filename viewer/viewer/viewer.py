@@ -60,12 +60,12 @@ class Viewer(Node):
         if msg.state == State.LOST:
             self.get_logger().info("LOST")
             drone_id = msg.identifier.natural
-            self.left_points[drone_id] = []
+            self.left_points[drone_id] = [self.left_points[drone_id][-1]]
         elif msg.state == State.FINISHED:
             self.get_logger().info("FINISHED")
             drone_id = msg.identifier.natural
             self.get_logger().info("List: "+str(len(self.left_points[drone_id])))
-            self.left_points[drone_id] = []
+            self.left_points[drone_id].pop()
 
 
     def positionCallback(self, msg, id):
