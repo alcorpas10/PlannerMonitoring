@@ -77,11 +77,12 @@ class Viewer(Node):
             self.left_points[id].pop(0)
         if len(self.covered_points[id]) > 0:
             self.covered_points[id].pop()
-        if len(self.left_points[id]) > 0 and len(self.covered_points[id]) > 0:
-            pos_in_trj = self.calculateProjection(pose, self.covered_points[id][-1], self.left_points[id][0])
-            self.covered_points[id].append(pos_in_trj)
-        else:
-            self.covered_points[id].append(pose)
+        if len(self.left_points[id]) > 0:
+            if len(self.covered_points[id]) > 0:
+                pos_in_trj = self.calculateProjection(pose, self.covered_points[id][-1], self.left_points[id][0])
+                self.covered_points[id].append(pos_in_trj)
+            else:
+                self.covered_points[id].append(pose)
 
         self.left_points[id].insert(0, pose)
     
