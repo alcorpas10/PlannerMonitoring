@@ -95,9 +95,9 @@ class Viewer(Node):
     def coveredCallback(self, msg):
         drone_id = msg.natural
         # Append the second point of the left points list to the second to last position of the covered points list
-        if len(self.left_points[drone_id]) > 1 and len(self.covered_points[drone_id]) >= 1:
-            self.covered_points[drone_id].insert(-1, self.left_points[drone_id][1])
-            self.left_points[drone_id].pop(1)
+        #if len(self.left_points[drone_id]) > 1 and len(self.covered_points[drone_id]) >= 1:
+        self.covered_points[drone_id].insert(-1, self.left_points[drone_id][1])
+        self.left_points[drone_id].pop(1)
 
     def timerCallback(self):
         """Publishes the covered and left points lists"""
