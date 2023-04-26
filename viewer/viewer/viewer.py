@@ -58,8 +58,15 @@ class Viewer(Node):
 
     def eventCallback(self, msg):
         if msg.state == State.LOST:
+            self.get_logger().info("LOST")
             drone_id = msg.identifier.natural
             self.left_points[drone_id] = []
+        elif msg.state == State.FINISHED:
+            self.get_logger().info("FINISHED")
+            drone_id = msg.identifier.natural
+            self.get_logger().info("List: "+str(len(self.left_points[drone_id])))
+            self.left_points[drone_id] = []
+
 
     def positionCallback(self, msg, id):
         """Saves the new position of the drone and appends it at the end of the covered points
@@ -73,9 +80,7 @@ class Viewer(Node):
         if len(self.left_points[id]) > 0 and len(self.covered_points[id]) > 0:
             pos_in_trj = self.calculateProjection(pose, self.covered_points[id][-1], self.left_points[id][0])
             self.covered_points[id].append(pos_in_trj)
-        else:
-            self.covered_points[id].append(pose)
-        if len(self.left_points) > 1:
+        if len(self.left_points) > 0:
             self.left_points[id].insert(0, pose)
     
     def calculateProjection(self, pos, wp1, wp2):

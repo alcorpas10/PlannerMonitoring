@@ -22,10 +22,6 @@ class Drone(MonitorData):
 
     def checkDrone(self, dist_trj, dist_wp):
         """Checks the drone status and returns the event code"""
-        if self.in_homebase:
-            print("WPs: Length: "+str(len(self.waypoints))+" List: "+str(self.waypoints))
-            print("State: "+str(self.state))
-
         # When the drone reaches the homebase after getting lost
         if self.state == State.LOST and self.in_homebase:
             print("Drone ", self.id, " was recovered")
@@ -61,9 +57,7 @@ class Drone(MonitorData):
 
         # When the drone is in the last waypoint
         if len(wps) == 1 and waypoint_dist <= dist_wp:
-            print("Aqui con lenght: "+str(len(self.waypoints)))
             self.advanceWP()
-            print("Ahora aqui con lenght: "+str(len(self.waypoints)))
 
             if self.state == State.GOING_HOME:
                 print("Landed")
