@@ -13,7 +13,6 @@ class Drone(MonitorData):
         self.camera_ok = True
         self.deviated = False
         self.in_homebase = False
-        self.imu_err_count = 0
         self.repeat = False
 
         self.last_distance = float("inf")
@@ -23,6 +22,10 @@ class Drone(MonitorData):
 
     def checkDrone(self, dist_trj, dist_wp):
         """Checks the drone status and returns the event code"""
+        if self.in_homebase:
+            print("WPs: Length: "+str(len(self.waypoints))+" List: "+str(self.waypoints))
+            print("State: "+str(self.state))
+
         # When the drone reaches the homebase after getting lost
         if self.state == State.LOST and self.in_homebase:
             print("Drone ", self.id, " was recovered")
@@ -44,13 +47,6 @@ class Drone(MonitorData):
             print("Drone ", self.id, " has very low battery")
             self.state = State.LOST
             return 1
-        
-        # When the IMU is too high several times
-        if self.imu_err_count > 2:
-            print("Drone ", self.id, " has IMU problems")
-            self.state = State.LOST
-            self.imu_err_count = 0
-            return 1
 
         wps = self.waypoints
 
@@ -65,12 +61,16 @@ class Drone(MonitorData):
 
         # When the drone is in the last waypoint
         if len(wps) == 1 and waypoint_dist <= dist_wp:
+            print("Aqui con lenght: "+str(len(self.waypoints)))
             self.advanceWP()
+            print("Ahora aqui con lenght: "+str(len(self.waypoints)))
 
             if self.state == State.GOING_HOME:
+                print("Landed")
                 self.state = State.LANDED
                 return 2
             else:
+                print("Home")
                 self.state = State.GOING_HOME
                 return 0
 
@@ -101,7 +101,6 @@ class Drone(MonitorData):
             self.last_distance = waypoint_dist
             self.pos_in_trj = self.position
 
-        # This point should never be reached
         return -1
     
     def distance(self, p1, p2):
@@ -163,23 +162,6 @@ class Drone(MonitorData):
         self.time_last_msg = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         self.in_homebase = True if self.distance(self.position, self.homebase) < 0.2 else False
 
-    def imuCallback(self, msg):
-        angular_vel = msg.angular_velocity
-        linear_acc = msg.linear_acceleration
-        if angular_vel.x > 2 or angular_vel.y > 3.5 or angular_vel.z > 0.25:
-            print("Angular max: "+str(angular_vel))
-            self.imu_err_count += 1
-        if angular_vel.x < -2 or angular_vel.y < -3.5 or angular_vel.z < -0.25:
-            print("Angular min: "+str(angular_vel))
-            self.imu_err_count += 1
-        if linear_acc.x > 1 or linear_acc.y > 1 or linear_acc.z > 15.0:
-            print("Linear max: "+str(linear_acc))
-            self.imu_err_count += 1
-        if linear_acc.x < -1 or linear_acc.y < -2 or linear_acc.z < 6.0:
-            print("Linear min: "+str(linear_acc))
-            self.imu_err_count += 1
-        self.imu_err_count = 0 # TODO remove to monitor the IMU errors
-
     def reset(self):
         """Resets the drone to its initial state"""
         super().reset()
@@ -187,7 +169,6 @@ class Drone(MonitorData):
         self.battery = 100 # TODO check how the real battery works
         self.camera_ok = True
         self.deviated = False
-        self.imu_err_count = 0
 
         self.last_distance = float("inf")
         self.last_wp = self.position

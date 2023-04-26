@@ -6,7 +6,7 @@ from mutac_msgs.msg import Alarm, State, Plan, Identifier
 from mutac_msgs.srv import Replan
 
 from geometry_msgs.msg import PoseStamped, TwistStamped
-from sensor_msgs.msg import BatteryState, Imu
+from sensor_msgs.msg import BatteryState
 from std_msgs.msg import Empty
 
 from monitor.monitor_data import State as MonitorState
@@ -61,7 +61,6 @@ class ExecutionMonitor(Node):
         self.pose_sub = self.create_subscription(PoseStamped, uav_name+'/self_localization/pose', self.drone.positionCallback, qos.qos_profile_sensor_data)
         #self.twist_sub = self.create_subscription(TwistStamped, uav_name+'/self_localization/twist', self.drone.velocityCallback, 100)
         self.battery_sub = self.create_subscription(BatteryState, uav_name+'/sensor_measurements/battery', self.drone.batteryCallback, qos.qos_profile_sensor_data)
-        self.imu_sub = self.create_subscription(Imu, uav_name+'/sensor_measurements/imu', self.drone.imuCallback, qos.qos_profile_sensor_data)
 
         # Mutac topics
         self.trj_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
