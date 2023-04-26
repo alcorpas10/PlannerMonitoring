@@ -27,6 +27,7 @@ class Viewer(Node):
 
         self.trj_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
         self.covered_sub = self.create_subscription(Identifier, '/mutac/covered_points', self.coveredCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
+        self.events_sub = self.create_subscription(State, '/mutac/drone_events', self.eventCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
 
         for i in range(self.n_drones):
             uav_name = "/drone_sim_"+str(i)
@@ -55,6 +56,11 @@ class Viewer(Node):
             #self.get_logger().debug("Drone " + str(i) + " has " + str(len(self.left_points[i])) + " left points")
             self.get_logger().info("Drone " + str(i) + " has " + str(len(self.left_points[i])) + " left points")
 
+    def eventCallback(self, msg):
+        if msg.state == State.LOST:
+            drone_id = msg.identifier.natural
+            self.left_points[drone_id] = []
+
     def positionCallback(self, msg, id):
         """Saves the new position of the drone and appends it at the end of the covered points
         list and at the beginning of the left points list. Before appending the new position,
@@ -69,7 +75,7 @@ class Viewer(Node):
             self.covered_points[id].append(pos_in_trj)
         else:
             self.covered_points[id].append(pose)
-        if len(self.left_points) > 0:
+        if len(self.left_points) > 1:
             self.left_points[id].insert(0, pose)
     
     def calculateProjection(self, pos, wp1, wp2):
