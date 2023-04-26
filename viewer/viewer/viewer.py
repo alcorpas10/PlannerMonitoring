@@ -80,8 +80,10 @@ class Viewer(Node):
         if len(self.left_points[id]) > 0 and len(self.covered_points[id]) > 0:
             pos_in_trj = self.calculateProjection(pose, self.covered_points[id][-1], self.left_points[id][0])
             self.covered_points[id].append(pos_in_trj)
-        if len(self.left_points) > 0:
-            self.left_points[id].insert(0, pose)
+        else:
+            self.covered_points[id].append(pose)
+
+        self.left_points[id].insert(0, pose)
     
     def calculateProjection(self, pos, wp1, wp2):
         """Returns the projection of a point in a line"""
