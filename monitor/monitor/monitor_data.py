@@ -67,8 +67,7 @@ class MonitorData:
         path.identifier.natural = self.id if self.state != State.LOST else -1
 
         point = LabeledPoint()
-        # pos = self.position if self.state != State.LOST else self.pos_in_trj
-        pos = self.pos_in_trj
+        pos = self.position if self.state != State.LOST else self.pos_in_trj
         point.point.x = pos[0]
         point.point.y = pos[1]
         point.point.z = pos[2]

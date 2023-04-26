@@ -27,7 +27,7 @@ class Viewer(Node):
 
         self.trj_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
         self.covered_sub = self.create_subscription(Identifier, '/mutac/covered_points', self.coveredCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
-        self.events_sub = self.create_subscription(State, '/mutac/drone_events', self.eventCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
+        # self.events_sub = self.create_subscription(State, '/mutac/drone_events', self.eventCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
 
         for i in range(self.n_drones):
             uav_name = "/drone_sim_"+str(i)
@@ -56,16 +56,16 @@ class Viewer(Node):
             #self.get_logger().debug("Drone " + str(i) + " has " + str(len(self.left_points[i])) + " left points")
             self.get_logger().info("Drone " + str(i) + " has " + str(len(self.left_points[i])) + " left points")
 
-    def eventCallback(self, msg):
-        if msg.state == State.LOST:
-            self.get_logger().info("LOST")
-            drone_id = msg.identifier.natural
-            self.left_points[drone_id] = [self.left_points[drone_id][-1]]
-        elif msg.state == State.FINISHED:
-            self.get_logger().info("FINISHED")
-            drone_id = msg.identifier.natural
-            self.get_logger().info("List: "+str(len(self.left_points[drone_id])))
-            self.left_points[drone_id].pop()
+    # def eventCallback(self, msg):
+    #     if msg.state == State.LOST:
+    #         self.get_logger().info("LOST")
+    #         drone_id = msg.identifier.natural
+    #         self.left_points[drone_id] = [self.left_points[drone_id][-1]]
+    #     elif msg.state == State.FINISHED:
+    #         self.get_logger().info("FINISHED")
+    #         drone_id = msg.identifier.natural
+    #         self.get_logger().info("List: "+str(len(self.left_points[drone_id])))
+    #         self.left_points[drone_id].pop()
 
 
     def positionCallback(self, msg, id):
@@ -77,18 +77,12 @@ class Viewer(Node):
             self.left_points[id].pop(0)
         if len(self.covered_points[id]) > 0:
             self.covered_points[id].pop()
-        if len(self.left_points[id]) > 0:
-            if len(self.covered_points[id]) > 0:
-                if self.notZero(self.covered_points[id][-1]) and self.notZero(self.left_points[id][0]):
-                    pos_in_trj = self.calculateProjection(pose, self.covered_points[id][-1], self.left_points[id][0])
-                    self.covered_points[id].append(pos_in_trj)
-            else:
-                self.covered_points[id].append(pose)
-
+        if len(self.left_points[id]) > 0 and len(self.covered_points[id]) > 0:
+            pos_in_trj = self.calculateProjection(pose, self.covered_points[id][-1], self.left_points[id][0])
+            self.covered_points[id].append(pos_in_trj)
+        else:
+            self.covered_points[id].append(pose)
         self.left_points[id].insert(0, pose)
-    
-    def notZero(self, v):
-        return v[0] != 0 or v[1] != 0 or v[2] != 0 
 
     def calculateProjection(self, pos, wp1, wp2):
         """Returns the projection of a point in a line"""
@@ -102,9 +96,9 @@ class Viewer(Node):
     def coveredCallback(self, msg):
         drone_id = msg.natural
         # Append the second point of the left points list to the second to last position of the covered points list
-        #if len(self.left_points[drone_id]) > 1 and len(self.covered_points[drone_id]) >= 1:
-        self.covered_points[drone_id].insert(-1, self.left_points[drone_id][1])
-        self.left_points[drone_id].pop(1)
+        if len(self.left_points[drone_id]) > 1 and len(self.covered_points[drone_id]) >= 1:
+            self.covered_points[drone_id].insert(-1, self.left_points[drone_id][1])
+            self.left_points[drone_id].pop(1)
 
     def timerCallback(self):
         """Publishes the covered and left points lists"""
