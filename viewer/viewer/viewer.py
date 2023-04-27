@@ -46,43 +46,35 @@ class Viewer(Node):
     def trajectoryCallback(self, msg):
         self.get_logger().info("Got plan")
         self.left_points = [[] for _ in range(self.n_drones)]
+        received_path = []
 
         for path in msg.paths:
             path_id = path.identifier.natural
+            received_path.append(path_id)
             for p in path.points:
                 self.left_points[path_id].append([p.point.x, p.point.y, p.point.z, p.label])
             self.covered_points[path_id].append([path.points[0].point.x, path.points[0].point.y, path.points[0].point.z, path.points[0].label])
         for i in range(self.n_drones):
             #self.get_logger().debug("Drone " + str(i) + " has " + str(len(self.left_points[i])) + " left points")
             self.get_logger().info("Drone " + str(i) + " has " + str(len(self.left_points[i])) + " left points")
-
-    # def eventCallback(self, msg):
-    #     if msg.state == State.LOST:
-    #         self.get_logger().info("LOST")
-    #         drone_id = msg.identifier.natural
-    #         self.left_points[drone_id] = [self.left_points[drone_id][-1]]
-    #     elif msg.state == State.FINISHED:
-    #         self.get_logger().info("FINISHED")
-    #         drone_id = msg.identifier.natural
-    #         self.get_logger().info("List: "+str(len(self.left_points[drone_id])))
-    #         self.left_points[drone_id].pop()
-
+            if i not in received_path:
+                self.covered_points[i].append(list(self.pose).append(None))
 
     def positionCallback(self, msg, id):
         """Saves the new position of the drone and appends it at the end of the covered points
         list and at the beginning of the left points list. Before appending the new position,
         the old one is removed"""
-        pose = (msg.position.x, msg.position.y, msg.position.z)
+        self.pose = (msg.position.x, msg.position.y, msg.position.z)
         if len(self.left_points[id]) > 0:
             self.left_points[id].pop(0)
         if len(self.covered_points[id]) > 0:
             self.covered_points[id].pop()
         if len(self.left_points[id]) > 0 and len(self.covered_points[id]) > 0:
-            pos_in_trj = self.calculateProjection(pose, self.covered_points[id][-1], self.left_points[id][0])
-            self.covered_points[id].append(pos_in_trj)
+            pos_in_trj = self.calculateProjection(self.pose, self.covered_points[id][-1], self.left_points[id][0])
+            self.covered_points[id].append(list(pos_in_trj).append(None))
         else:
-            self.covered_points[id].append(pose)
-        self.left_points[id].insert(0, pose)
+            self.covered_points[id].append(list(self.pose).append(None))
+        self.left_points[id].insert(0, self.pose)
 
     def calculateProjection(self, pos, wp1, wp2):
         """Returns the projection of a point in a line"""
@@ -114,7 +106,7 @@ class Viewer(Node):
             path_msg = Path()
             path_msg.header.frame_id = 'earth'
             path_msg.poses = poses_list_left
-            self.get_logger().debug("Length: "+str(len(path_msg.poses)))
+            self.get_logger().info("Length: "+str(len(path_msg.poses))+" Values: "+str(path_msg.poses))
             self.left_pubs[i].publish(path_msg)
 
             poses_list_cov = []
