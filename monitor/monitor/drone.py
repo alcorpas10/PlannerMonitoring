@@ -54,11 +54,6 @@ class Drone(MonitorData):
             self.repeat = False
             # TODO check what happens when the alarm is activated several times in a row
             return 5
-
-        # if len(wps) == 1 and waypoint_dist <= dist_wp:
-        #     self.advanceWP()
-        #     self.state = State.LANDED
-        #     return 2
         
         # When the drone is in the last waypoint (homebase)
         if len(wps) == 1 and waypoint_dist <= dist_wp:

@@ -9,8 +9,6 @@ from geometry_msgs.msg import PoseStamped, TwistStamped
 from sensor_msgs.msg import BatteryState
 from std_msgs.msg import Empty
 
-from monitor.monitor_data import State as MonitorState
-
 from monitor.drone import Drone
 
 
@@ -22,10 +20,9 @@ class ExecutionMonitor(Node):
                         automatically_declare_parameters_from_overrides=True)
         self.id = id
 
-        # TODO avoid hardcoding, check if can be variable
         # Monitor constant parameters
-        self.dist_trj = 0.5
-        self.dist_wp = 0.2
+        self.dist_trj = self.get_parameter('distance.trajectory').value
+        self.dist_wp = self.get_parameter('distance.waypoint').value
 
         # Obtains the homebase position and creates the drone object
         homebase = self.get_parameter('homebase.drone'+str(self.id+1)).value
@@ -40,7 +37,7 @@ class ExecutionMonitor(Node):
         self.provide_wp_client = self.create_client(Replan, '/mutac/provide_wps')
 
         # Initializes the timer
-        self.timer_period = 0.5 # TODO the rate was 3, now is 2
+        self.timer_period = 0.25 # The rate is 4 Hz
         self.timer = self.create_timer(self.timer_period, self.timerCallback)
 
 
@@ -49,7 +46,6 @@ class ExecutionMonitor(Node):
         self.event_pub = self.create_publisher(State, '/mutac/drone_events', qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
         self.covered_pub = self.create_publisher(Identifier, '/mutac/covered_points', qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
         #self.drone_request = self.create_publisher(DroneRequest, '/mutac/drone_request', 100)
-        #self.comms_pub = self.create_publisher(DroneComms, '/mutac/drone_comms', 100)
 
     def initializeSubscribers(self):
         """Initializes the subscribers. The topics are the ones used in Aerostack. To monitor
@@ -64,11 +60,9 @@ class ExecutionMonitor(Node):
 
         # Mutac topics
         self.trj_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
-        #self.events_sub = self.create_subscription(State, '/mutac/drone_events', self.eventCallback, 100)
         self.replan_sub = self.create_subscription(Empty, '/mutac/request_wps', self.replanCallback, 100) # TODO check the published message
         self.alarm_sub = self.create_subscription(Alarm, '/mutac/drone_alarm', self.alarmCallback, 100) # TODO Doesn't exist in Aerostack by now
         #self.user_sub = self.create_subscription(UserResponse, '/mutac/user_response', self.responseCallback, 100)
-        #self.comms_sub = self.create_subscription(DroneComms, '/mutac/drone_comms', self.commsCallback, 100)
 
     def timerCallback(self):
         """At a certain rate it is checked the state of the drone along the mission.
@@ -120,6 +114,10 @@ class ExecutionMonitor(Node):
             msg = State()
             msg.identifier.natural = self.id
             msg.state = State.WP_REPEATED
+            pos = self.drone.waypoints[0]['point']
+            msg.position.x = pos[0]
+            msg.position.y = pos[1]
+            msg.position.z = pos[2]
             self.event_pub.publish(msg)
 
     def trajectoryCallback(self, msg):

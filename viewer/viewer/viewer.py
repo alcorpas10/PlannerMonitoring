@@ -91,6 +91,8 @@ class Viewer(Node):
         if len(self.left_points[drone_id]) > 1 and len(self.covered_points[drone_id]) >= 1:
             self.covered_points[drone_id].insert(-1, self.left_points[drone_id][1])
             self.left_points[drone_id].pop(1)
+            if len(self.left_points[drone_id]) < 4:
+                self.get_logger().info("Length: "+str(len(self.left_points[drone_id]))+" Values: "+str(self.left_points[drone_id]))
 
     def timerCallback(self):
         """Publishes the covered and left points lists"""
@@ -106,8 +108,6 @@ class Viewer(Node):
             path_msg = Path()
             path_msg.header.frame_id = 'earth'
             path_msg.poses = poses_list_left
-            if len(path_msg.poses) < 4:
-                self.get_logger().info("Length: "+str(len(path_msg.poses))+" Values: "+str(path_msg.poses))
             self.left_pubs[i].publish(path_msg)
 
             poses_list_cov = []
