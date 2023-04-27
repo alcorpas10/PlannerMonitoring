@@ -106,7 +106,8 @@ class Viewer(Node):
             path_msg = Path()
             path_msg.header.frame_id = 'earth'
             path_msg.poses = poses_list_left
-            self.get_logger().info("Length: "+str(len(path_msg.poses))+" Values: "+str(path_msg.poses))
+            if len(path_msg.poses) < 4:
+                self.get_logger().info("Length: "+str(len(path_msg.poses))+" Values: "+str(path_msg.poses))
             self.left_pubs[i].publish(path_msg)
 
             poses_list_cov = []
