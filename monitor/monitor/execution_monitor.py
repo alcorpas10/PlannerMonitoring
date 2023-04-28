@@ -2,8 +2,8 @@ import rclpy
 from rclpy.node import Node
 from rclpy import qos
 
-from mutac_msgs.msg import Alarm, State, Plan, Identifier
-from mutac_msgs.srv import Replan
+from mutac_msgs.msg import Alarm, State, Plan, Identifier, DroneComms
+from mutac_msgs.srv import Replan, DroneRequest
 
 from geometry_msgs.msg import PoseStamped, TwistStamped
 from sensor_msgs.msg import BatteryState
@@ -23,10 +23,12 @@ class ExecutionMonitor(Node):
         # Monitor constant parameters
         self.dist_trj = self.get_parameter('distance.trajectory').value
         self.dist_wp = self.get_parameter('distance.waypoint').value
+        self.error_limit = self.get_parameter('error_limit').value
 
         # Obtains the homebase position and creates the drone object
         homebase = self.get_parameter('homebase.drone'+str(self.id+1)).value
         self.drone = Drone(self.id, homebase)
+        self.lost_drones = {}
 
         # Initializes the ros2 publishers and subscribers
         self.initializePublishers()
@@ -35,6 +37,7 @@ class ExecutionMonitor(Node):
         # Initializes the ros2 clients
         self.ask_replan_client = self.create_client(Replan, '/mutac/ask_replan')
         self.provide_wp_client = self.create_client(Replan, '/mutac/provide_wps')
+        self.drone_request_client = self.create_client(DroneRequest, '/drone_request')
 
         # Initializes the timer
         self.timer_period = 0.25 # The rate is 4 Hz
@@ -45,7 +48,7 @@ class ExecutionMonitor(Node):
         """Initializes the publishers"""
         self.event_pub = self.create_publisher(State, '/mutac/drone_events', qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
         self.covered_pub = self.create_publisher(Identifier, '/mutac/covered_points', qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
-        #self.drone_request = self.create_publisher(DroneRequest, '/mutac/drone_request', 100)
+        self.comms_pub = self.create_publisher(DroneComms, '/drone_comms', 100)
 
     def initializeSubscribers(self):
         """Initializes the subscribers. The topics are the ones used in Aerostack. To monitor
@@ -55,14 +58,13 @@ class ExecutionMonitor(Node):
 
         # Aerostack topics
         self.pose_sub = self.create_subscription(PoseStamped, uav_name+'/self_localization/pose', self.drone.positionCallback, qos.qos_profile_sensor_data)
-        #self.twist_sub = self.create_subscription(TwistStamped, uav_name+'/self_localization/twist', self.drone.velocityCallback, 100)
         self.battery_sub = self.create_subscription(BatteryState, uav_name+'/sensor_measurements/battery', self.drone.batteryCallback, qos.qos_profile_sensor_data)
 
         # Mutac topics
         self.trj_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
         self.replan_sub = self.create_subscription(Empty, '/mutac/request_wps', self.replanCallback, 100) # TODO check the published message
         self.alarm_sub = self.create_subscription(Alarm, '/mutac/drone_alarm', self.alarmCallback, 100) # TODO Doesn't exist in Aerostack by now
-        #self.user_sub = self.create_subscription(UserResponse, '/mutac/user_response', self.responseCallback, 100)
+        self.comms_pub = self.create_subscription(DroneComms, '/drone_comms', self.commsCallback, 100)
 
     def timerCallback(self):
         """At a certain rate it is checked the state of the drone along the mission.
@@ -78,6 +80,7 @@ class ExecutionMonitor(Node):
             # self.askReplan() # TODO to let the drone help once it has finished his mission
 
         elif event_id == 1: # LOST
+            # Publish a message in the drone_events topic
             msg = State()
             msg.identifier.natural = self.id
             msg.state = event_id
@@ -89,6 +92,12 @@ class ExecutionMonitor(Node):
             else:
                 msg.type = State.LAND                
             self.event_pub.publish(msg)
+            # Publish a message in the drone_comms topic
+            if self.drone.deviated:
+                msg = DroneComms()
+                msg.identifier.natural = self.id
+                msg.type = DroneComms.LOST
+                self.comms_pub.publish(msg)
             self.askReplan()
             self.drone.waypoints = []
 
@@ -165,6 +174,35 @@ class ExecutionMonitor(Node):
                 self.drone.camera_ok = False
             elif msg.alarm == Alarm.PHOTO_ERROR or msg.alarm == Alarm.VIBRATION_ERROR:
                 self.drone.repeatWP()
+
+    def commsCallback(self, msg):
+        """Callback for the treatment of the communications between drones"""
+        drone_id = msg.identifier.natural
+        if msg.type == DroneComms.LOST and drone_id != self.id:
+            if drone_id in self.lost_drones.keys():
+                self.lost_drones[drone_id] += 1
+            else:
+                self.lost_drones[drone_id] = 1
+            if len(self.lost_drones) == self.error_limit:
+                srv = DroneRequest.Request()
+                srv.type = DroneComms.CANCEL
+                self.get_logger().info("Requesting the cancellation of the mission")
+
+                while not self.drone_request_client.wait_for_service(timeout_sec=1.0):
+                    self.get_logger().warn('Service not available, waiting again...')
+                
+                # The request is sent through the drone_request service
+                self.drone_request_client.call_async(srv)
+
+                # Finally a message is published in the drone_comms topic
+                msg = DroneComms()
+                msg.identifier.natural = self.id
+                msg.type = DroneComms.CANCEL
+                self.comms_pub.publish(msg)
+                self.lost_drones = {}
+
+        if msg.type == DroneComms.CANCEL and drone_id != self.id:
+            self.lost_drones = {}
 
 
 class GetParam(Node):
