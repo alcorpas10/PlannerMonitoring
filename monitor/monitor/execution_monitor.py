@@ -122,12 +122,9 @@ class ExecutionMonitor(Node):
 
     def trajectoryCallback(self, msg):
         """Callback for the trajectory topic. It is used to set the waypoints of the drone"""
-        #self.get_logger().debug("********************")
         self.get_logger().info("********************")
         for path in msg.paths:
-            #self.get_logger().debug("Path "+str(path.identifier.natural) + ": "+str(len(path.points)))
             self.get_logger().info("Path "+str(path.identifier.natural) + ": "+str(len(path.points)))
-            #self.get_logger().debug("********************")
             self.get_logger().info("********************")
             self.drone.setWaypoints(path)
 
@@ -162,6 +159,7 @@ class ExecutionMonitor(Node):
     def alarmCallback(self, msg):
         """Callback for the alarm topic. When error detection is done in other node and
         an error must be monitored, it is sent through this topic"""
+        self.get_logger().info("Alarm received: "+str(msg))
         if msg.identifier.natural == self.id:
             if msg.alarm == Alarm.CAMERA_FAILURE:
                 self.drone.camera_ok = False

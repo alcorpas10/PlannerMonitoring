@@ -51,14 +51,13 @@ class Viewer(Node):
         for path in msg.paths:
             path_id = path.identifier.natural
             received_path.append(path_id)
-            for p in path.points:
+            for p in path.points[1:]:
                 self.left_points[path_id].append([p.point.x, p.point.y, p.point.z, p.label])
             self.covered_points[path_id].append([path.points[0].point.x, path.points[0].point.y, path.points[0].point.z, path.points[0].label])
         for i in range(self.n_drones):
-            #self.get_logger().debug("Drone " + str(i) + " has " + str(len(self.left_points[i])) + " left points")
             self.get_logger().info("Drone " + str(i) + " has " + str(len(self.left_points[i])) + " left points")
             if i not in received_path:
-                self.covered_points[i].append(list(self.pose).append(None))
+                self.covered_points[i].append(self.pose)
 
     def positionCallback(self, msg, id):
         """Saves the new position of the drone and appends it at the end of the covered points
@@ -71,10 +70,11 @@ class Viewer(Node):
             self.covered_points[id].pop()
         if len(self.left_points[id]) > 0 and len(self.covered_points[id]) > 0:
             pos_in_trj = self.calculateProjection(self.pose, self.covered_points[id][-1], self.left_points[id][0])
-            self.covered_points[id].append(list(pos_in_trj).append(None))
+            self.covered_points[id].append(pos_in_trj)
         else:
-            self.covered_points[id].append(list(self.pose).append(None))
-        self.left_points[id].insert(0, self.pose)
+            self.covered_points[id].append(self.pose)
+        if len(self.left_points[id]) > 1:
+            self.left_points[id].insert(0, self.pose)
 
     def calculateProjection(self, pos, wp1, wp2):
         """Returns the projection of a point in a line"""
@@ -91,8 +91,7 @@ class Viewer(Node):
         if len(self.left_points[drone_id]) > 1 and len(self.covered_points[drone_id]) >= 1:
             self.covered_points[drone_id].insert(-1, self.left_points[drone_id][1])
             self.left_points[drone_id].pop(1)
-            if len(self.left_points[drone_id]) < 4:
-                self.get_logger().info("Length: "+str(len(self.left_points[drone_id]))+" Values: "+str(self.left_points[drone_id]))
+            self.get_logger().info("Length: "+str(len(self.left_points[drone_id])))
 
     def timerCallback(self):
         """Publishes the covered and left points lists"""
