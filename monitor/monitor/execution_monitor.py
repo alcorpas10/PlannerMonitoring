@@ -72,6 +72,9 @@ class ExecutionMonitor(Node):
         event_id = self.drone.checkDrone(self.dist_trj, self.dist_wp)
 
         if event_id == 0: # MISSION_FINISHED
+            msg = Identifier()
+            msg.natural = self.id
+            self.covered_pub.publish(msg)
             msg = State()
             msg.identifier.natural = self.id
             msg.state = event_id
