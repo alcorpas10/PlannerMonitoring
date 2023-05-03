@@ -75,6 +75,8 @@ class Viewer(Node):
         self.pose = (msg.position.x, msg.position.y, msg.position.z)
         if len(self.left_points[id]) > 0:
             self.left_points[id].pop(0)
+            if len(self.left_points[id]) == 1:
+                self.left_points[id].pop()
         if len(self.covered_points[id]) > 0:
             self.covered_points[id].pop()
         if len(self.left_points[id]) > 0 and len(self.covered_points[id]) > 0:
