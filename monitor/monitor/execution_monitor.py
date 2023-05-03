@@ -64,7 +64,7 @@ class ExecutionMonitor(Node):
         self.trj_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
         self.replan_sub = self.create_subscription(Empty, '/mutac/request_wps', self.replanCallback, 100) # TODO check the published message
         self.alarm_sub = self.create_subscription(Alarm, '/mutac/drone_alarm', self.alarmCallback, 100) # TODO Doesn't exist in Aerostack by now
-        self.comms_pub = self.create_subscription(DroneComms, '/drone_comms', self.commsCallback, 100)
+        self.comms_sub = self.create_subscription(DroneComms, '/drone_comms', self.commsCallback, 100)
 
     def timerCallback(self):
         """At a certain rate it is checked the state of the drone along the mission.

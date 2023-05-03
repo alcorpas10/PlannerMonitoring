@@ -21,13 +21,15 @@ class Viewer(Node):
         self.covered_points = [[] for _ in range(self.n_drones)]
         self.left_points = [[] for _ in range(self.n_drones)]
 
+        self.last_wp = [None for _ in range(self.n_drones)]
+
         self.pose_subs = []
         self.left_pubs = []
         self.covered_pubs = []
 
         self.trj_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
         self.covered_sub = self.create_subscription(Identifier, '/mutac/covered_points', self.coveredCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
-        # self.events_sub = self.create_subscription(State, '/mutac/drone_events', self.eventCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
+        self.events_sub = self.create_subscription(State, '/mutac/drone_events', self.eventCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
 
         for i in range(self.n_drones):
             uav_name = "/drone_sim_"+str(i)
@@ -59,6 +61,13 @@ class Viewer(Node):
             if i not in received_path:
                 self.covered_points[i].append(self.pose)
 
+    def eventCallback(self, msg):
+        drone_id = msg.identifier.natural
+        if msg.state == State.WP_REPEATED:
+            self.get_logger().info("WP repeated")
+            self.covered_points[drone_id].insert(-1, self.pose)
+            self.left_points[drone_id].insert(1, self.last_wp[drone_id])
+
     def positionCallback(self, msg, id):
         """Saves the new position of the drone and appends it at the end of the covered points
         list and at the beginning of the left points list. Before appending the new position,
@@ -89,6 +98,7 @@ class Viewer(Node):
         drone_id = msg.natural
         # Append the second point of the left points list to the second to last position of the covered points list
         #if len(self.left_points[drone_id]) > 1 and len(self.covered_points[drone_id]) >= 1:
+        self.last_wp[drone_id] = self.left_points[drone_id][1]
         self.covered_points[drone_id].insert(-1, self.left_points[drone_id][1])
         self.left_points[drone_id].pop(1)
         self.get_logger().info("Length: "+str(len(self.left_points[drone_id])))
