@@ -65,7 +65,7 @@ class Viewer(Node):
         drone_id = msg.identifier.natural
         if msg.state == State.WP_REPEATED:
             self.get_logger().info("WP repeated")
-            self.covered_points[drone_id].insert(-1, self.pose)
+            self.covered_points[drone_id].insert(-1, self.left_points[drone_id][1])
             self.left_points[drone_id].insert(1, self.last_wp[drone_id])
 
     def positionCallback(self, msg, id):
