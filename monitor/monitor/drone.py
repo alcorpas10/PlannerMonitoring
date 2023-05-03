@@ -137,6 +137,7 @@ class Drone(MonitorData):
         during the drone inspection that does not require a replan"""
         self.last_distance = float("inf")
         self.waypoints.insert(0, {'label': self.last_label, 'point': self.last_wp})
+        self.last_wp = self.waypoints[1]['point']
         self.repeat = True
 
     def batteryCallback(self, msg):
