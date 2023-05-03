@@ -82,7 +82,7 @@ class Viewer(Node):
             self.covered_points[id].append(pos_in_trj)
         else:
             self.covered_points[id].append(self.pose)
-        if len(self.left_points[id]) > 1:
+        if len(self.left_points[id]) > 0:
             self.left_points[id].insert(0, self.pose)
 
     def calculateProjection(self, pos, wp1, wp2):
