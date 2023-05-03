@@ -188,8 +188,14 @@ class ExecutionMonitor(Node):
                 srv.type = DroneComms.CANCEL
                 self.get_logger().info("Requesting the cancellation of the mission")
 
-                while not self.drone_request_client.wait_for_service(timeout_sec=1.0):
+                i = 0
+                while not self.drone_request_client.wait_for_service(timeout_sec=1.0) and i < 5:
                     self.get_logger().warn('Service not available, waiting again...')
+                    i += 1
+                
+                if i == 5:
+                    self.get_logger().warn('Service not available, could not cancel the mission')
+                    return
                 
                 # The request is sent through the drone_request service
                 self.drone_request_client.call_async(srv)
