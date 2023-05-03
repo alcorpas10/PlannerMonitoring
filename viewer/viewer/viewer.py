@@ -51,7 +51,7 @@ class Viewer(Node):
         for path in msg.paths:
             path_id = path.identifier.natural
             received_path.append(path_id)
-            for p in path.points[1:]:
+            for p in path.points:
                 self.left_points[path_id].append([p.point.x, p.point.y, p.point.z, p.label])
             self.covered_points[path_id].append([path.points[0].point.x, path.points[0].point.y, path.points[0].point.z, path.points[0].label])
         for i in range(self.n_drones):
@@ -66,6 +66,8 @@ class Viewer(Node):
         self.pose = (msg.position.x, msg.position.y, msg.position.z)
         if len(self.left_points[id]) > 0:
             self.left_points[id].pop(0)
+            if len(self.left_points[id]) == 1:
+                self.left_points[id].pop(0)
         if len(self.covered_points[id]) > 0:
             self.covered_points[id].pop()
         if len(self.left_points[id]) > 0 and len(self.covered_points[id]) > 0:
