@@ -87,7 +87,7 @@ class ExecutionMonitor(Node):
             msg = State()
             msg.identifier.natural = self.id
             msg.state = event_id
-            if not self.drone.camera_ok:
+            if self.drone.deviated:
                 msg.type = State.HOMEBASE
                 msg.position.x = self.drone.homebase[0]
                 msg.position.y = self.drone.homebase[1]
