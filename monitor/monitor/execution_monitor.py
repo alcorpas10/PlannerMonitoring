@@ -87,7 +87,7 @@ class ExecutionMonitor(Node):
             msg = State()
             msg.identifier.natural = self.id
             msg.state = event_id
-            if self.drone.deviated or not self.drone.camera_ok:
+            if not self.drone.camera_ok:
                 msg.type = State.HOMEBASE
                 msg.position.x = self.drone.homebase[0]
                 msg.position.y = self.drone.homebase[1]
@@ -120,7 +120,7 @@ class ExecutionMonitor(Node):
             msg.identifier.natural = self.id
             msg.state = State.RECOVERED
             self.event_pub.publish(msg)
-            # self.askReplan()
+            self.askReplan()
 
         elif event_id == 5: # WP REPEATED
             msg = State()

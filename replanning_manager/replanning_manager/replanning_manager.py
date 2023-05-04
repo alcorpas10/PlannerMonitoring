@@ -14,7 +14,7 @@ class Replanner(Node):
 
         self.replan_pub = self.create_publisher(Empty, '/planner/replanning/request_wps', 100)
 
-        self.ask_replan_srv = self.create_service(Replan, '/planner/replanning/mutac/ask_replan', self.replanCallback)
+        self.ask_replan_srv = self.create_service(Replan, '/planner/replanning/ask_replan', self.replanCallback)
         self.provide_wp_srv = self.create_service(Replan, '/planner/replanning/provide_wps', self.pathCallback)
 
         self.replan_client = self.create_client(UpdatePlan, '/planner/update_plan')

@@ -34,11 +34,11 @@ class Viewer(Node):
 
         for i in range(self.n_drones):
             uav_name = namespace+str(i)
-            publisher = "/planner/visualization/" + uav_name
+            publisher = "/planner/visualization" + uav_name
             
             self.pose_subs.append(self.create_subscription(PoseStamped, uav_name+'/self_localization/pose', 
                                                            lambda msg, id=i: self.positionCallback(msg.pose, id), qos.qos_profile_sensor_data))
-            self.left_pubs.append(self.create_publisher(Path, publisher + "/left_path", 10))
+            self.left_pubs.append(self.create_publisher(Path, publisher + "/path_left", 10))
             self.covered_pubs.append(self.create_publisher(Path, publisher + "/covered_path", 10))
         
         self.timer_period = 0.1
