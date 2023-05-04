@@ -2,7 +2,7 @@ import rclpy
 from rclpy import qos
 from rclpy.node import Node
 
-from mutac_msgs.msg import Alarm, State, Plan, Identifier, LabeledPath
+from mutac_msgs.msg import State, Plan, Identifier
 
 from geometry_msgs.msg import Point, PoseStamped, Pose
 from nav_msgs.msg import Path
@@ -27,19 +27,19 @@ class Viewer(Node):
         self.left_pubs = []
         self.covered_pubs = []
 
-        self.trj_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
-        self.covered_sub = self.create_subscription(Identifier, '/mutac/covered_points', self.coveredCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
-        self.events_sub = self.create_subscription(State, '/mutac/drone_events', self.eventCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
+        self.trj_sub = self.create_subscription(Plan, '/planner/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
+        self.covered_sub = self.create_subscription(Identifier, '/planner/notification/covered_points', self.coveredCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
+        self.events_sub = self.create_subscription(State, '/planner/notification/drone_events', self.eventCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
 
         for i in range(self.n_drones):
             uav_name = "/drone_sim_"+str(i)
-            # uav_name = "cf"+str(i)
-            publisher = "/path" + str(i)
+            # uav_name = "/cf"+str(i)
+            publisher = "/planner/visualization/" + uav_name
             
             self.pose_subs.append(self.create_subscription(PoseStamped, uav_name+'/self_localization/pose', 
                                                            lambda msg, id=i: self.positionCallback(msg.pose, id), qos.qos_profile_sensor_data))
-            self.left_pubs.append(self.create_publisher(Path, publisher + "_left", 10))
-            self.covered_pubs.append(self.create_publisher(Path, publisher + "_covered", 10))
+            self.left_pubs.append(self.create_publisher(Path, publisher + "/left_path", 10))
+            self.covered_pubs.append(self.create_publisher(Path, publisher + "/covered_path", 10))
         
         self.timer_period = 0.1
         self.timer = self.create_timer(self.timer_period, self.timerCallback)

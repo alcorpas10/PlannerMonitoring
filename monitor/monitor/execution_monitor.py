@@ -5,7 +5,7 @@ from rclpy import qos
 from mutac_msgs.msg import Alarm, State, Plan, Identifier, DroneComms
 from mutac_msgs.srv import Replan, DroneRequest
 
-from geometry_msgs.msg import PoseStamped, TwistStamped
+from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import BatteryState
 from std_msgs.msg import Empty
 
@@ -35,9 +35,9 @@ class ExecutionMonitor(Node):
         self.initializeSubscribers()
 
         # Initializes the ros2 clients
-        self.ask_replan_client = self.create_client(Replan, '/mutac/ask_replan')
-        self.provide_wp_client = self.create_client(Replan, '/mutac/provide_wps')
-        self.drone_request_client = self.create_client(DroneRequest, '/drone_request')
+        self.ask_replan_client = self.create_client(Replan, '/planner/replanning/ask_replan')
+        self.provide_wp_client = self.create_client(Replan, '/planner/replanning/provide_wps')
+        self.drone_request_client = self.create_client(DroneRequest, '/planner/comms/drone_request')
 
         # Initializes the timer
         self.timer_period = 0.25 # The rate is 4 Hz
@@ -46,9 +46,9 @@ class ExecutionMonitor(Node):
 
     def initializePublishers(self):
         """Initializes the publishers"""
-        self.event_pub = self.create_publisher(State, '/mutac/drone_events', qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
-        self.covered_pub = self.create_publisher(Identifier, '/mutac/covered_points', qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
-        self.comms_pub = self.create_publisher(DroneComms, '/drone_comms', 100)
+        self.event_pub = self.create_publisher(State, '/planner/notification/drone_events', qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
+        self.covered_pub = self.create_publisher(Identifier, '/planner/notification/covered_points', qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
+        self.comms_pub = self.create_publisher(DroneComms, '/planner/comms/drone_comms', 100)
 
     def initializeSubscribers(self):
         """Initializes the subscribers. The topics are the ones used in Aerostack. To monitor
@@ -60,11 +60,11 @@ class ExecutionMonitor(Node):
         self.pose_sub = self.create_subscription(PoseStamped, uav_name+'/self_localization/pose', self.drone.positionCallback, qos.qos_profile_sensor_data)
         self.battery_sub = self.create_subscription(BatteryState, uav_name+'/sensor_measurements/battery', self.drone.batteryCallback, qos.qos_profile_sensor_data)
 
-        # Mutac topics
-        self.trj_sub = self.create_subscription(Plan, '/mutac/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
-        self.replan_sub = self.create_subscription(Empty, '/mutac/request_wps', self.replanCallback, 100) # TODO check the published message
-        self.alarm_sub = self.create_subscription(Alarm, '/mutac/drone_alarm', self.alarmCallback, 100) # TODO Doesn't exist in Aerostack by now
-        self.comms_sub = self.create_subscription(DroneComms, '/drone_comms', self.commsCallback, 100)
+        # Planner topics
+        self.trj_sub = self.create_subscription(Plan, '/planner/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
+        self.replan_sub = self.create_subscription(Empty, '/planner/replanning/request_wps', self.replanCallback, 100)
+        self.alarm_sub = self.create_subscription(Alarm, '/planner/signal/drone_alarm', self.alarmCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100)) # Not used by now
+        self.comms_sub = self.create_subscription(DroneComms, '/planner/drone_comms', self.commsCallback, 100)
 
     def timerCallback(self):
         """At a certain rate it is checked the state of the drone along the mission.

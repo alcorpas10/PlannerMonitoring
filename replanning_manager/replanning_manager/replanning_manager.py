@@ -1,5 +1,4 @@
 import rclpy
-from rclpy import qos
 from rclpy.node import Node
 
 from mutac_msgs.msg import Plan
@@ -13,12 +12,12 @@ class Replanner(Node):
     def __init__(self):
         super().__init__('Replanning_manager')
 
-        self.replan_pub = self.create_publisher(Empty, '/mutac/request_wps', 100)
+        self.replan_pub = self.create_publisher(Empty, '/planner/replanning/request_wps', 100)
 
-        self.ask_replan_srv = self.create_service(Replan, '/mutac/ask_replan', self.replanCallback)
-        self.provide_wp_srv = self.create_service(Replan, '/mutac/provide_wps', self.pathCallback)
+        self.ask_replan_srv = self.create_service(Replan, '/planner/replanning/mutac/ask_replan', self.replanCallback)
+        self.provide_wp_srv = self.create_service(Replan, '/planner/replanning/provide_wps', self.pathCallback)
 
-        self.replan_client = self.create_client(UpdatePlan, '/mutac/update_plan')
+        self.replan_client = self.create_client(UpdatePlan, '/planner/update_plan')
 
         self.plan = Plan()
 
@@ -45,7 +44,7 @@ class Replanner(Node):
         self.get_logger().info("********************")
         self.get_logger().info("Replan received")
         self.get_logger().info("********************")
-        self.plan.paths.append(request.path) # TODO check replanning twice 
+        self.plan.paths.append(request.path)
         self.get_logger().info("Plan: "+str(len(self.plan.paths)))
         self.replan_pub.publish(Empty())
         if self.timer is None:
