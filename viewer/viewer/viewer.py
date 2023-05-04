@@ -16,6 +16,7 @@ class Viewer(Node):
                          automatically_declare_parameters_from_overrides=True)
         
         self.n_drones = self.get_parameter('n_drones').value
+        namespace = self.get_parameter('namespace').value
 
         self.get_logger().info("Drones: " + str(self.n_drones))
         self.covered_points = [[] for _ in range(self.n_drones)]
@@ -32,8 +33,7 @@ class Viewer(Node):
         self.events_sub = self.create_subscription(State, '/planner/notification/drone_events', self.eventCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
 
         for i in range(self.n_drones):
-            uav_name = "/drone_sim_"+str(i)
-            # uav_name = "/cf"+str(i)
+            uav_name = namespace+str(i)
             publisher = "/planner/visualization/" + uav_name
             
             self.pose_subs.append(self.create_subscription(PoseStamped, uav_name+'/self_localization/pose', 

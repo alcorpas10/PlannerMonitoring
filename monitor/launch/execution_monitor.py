@@ -17,7 +17,7 @@ def get_execution_monitor_node(context):
         "drone_id": drone_id
     }]
     
-    ns = 'mutac/drone' + drone_id.perform(context)
+    ns = 'planner/drone' + drone_id.perform(context)
 
     parameters.append(config_file)
 

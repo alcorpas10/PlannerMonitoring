@@ -24,6 +24,7 @@ class ExecutionMonitor(Node):
         self.dist_trj = self.get_parameter('distance.trajectory').value
         self.dist_wp = self.get_parameter('distance.waypoint').value
         self.error_limit = self.get_parameter('error_limit').value
+        self.namespace = self.get_parameter('namespace').value
 
         # Obtains the homebase position and creates the drone object
         homebase = self.get_parameter('homebase.drone'+str(self.id+1)).value
@@ -52,9 +53,8 @@ class ExecutionMonitor(Node):
 
     def initializeSubscribers(self):
         """Initializes the subscribers. The topics are the ones used in Aerostack. To monitor
-        real drones the 'cf' uav_name should be used instead of 'drone_sim'"""
-        uav_name = "/drone_sim_"+str(self.id)
-        # uav_name = "/cf"+str(self.id)
+        real drones the 'cf' uav_name should be used instead of 'drone_sim' in the namespace"""
+        uav_name = self.namespace+str(self.id)
 
         # Aerostack topics
         self.pose_sub = self.create_subscription(PoseStamped, uav_name+'/self_localization/pose', self.drone.positionCallback, qos.qos_profile_sensor_data)

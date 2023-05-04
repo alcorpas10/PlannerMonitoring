@@ -12,7 +12,7 @@ def get_viewer_node(context):
 
     execution_monitor_node = Node(
         package='viewer',
-        namespace='mutac',
+        namespace='planner',
         executable='viewer',
         name='viewer',
         parameters=[config_file],
