@@ -72,7 +72,6 @@ class MonitorData:
         point.point.y = pos[1]
         point.point.z = pos[2]
 
-        # TODO maybe check if waypoints are empty
         for waypoint in self.waypoints:
             l_point = LabeledPoint()
             l_point.point.x = waypoint['point'][0]
@@ -93,7 +92,7 @@ class MonitorData:
         """Callback for the position of the drone"""
         self.position = (msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)
 
-    def reset(self): # TODO check if there are more things to reset
+    def reset(self):
         """Resets the drone to the initial state"""
         self.state = State.NOT_STARTED
 

@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy import qos
 
-from mutac_msgs.msg import Alarm, State, Plan, Identifier, DroneComms
+from mutac_msgs.msg import Alarm, State, Plan, Identifier, DroneComms#, UserRequest
 from mutac_msgs.srv import Replan, DroneRequest
 
 from geometry_msgs.msg import PoseStamped
@@ -10,6 +10,8 @@ from sensor_msgs.msg import BatteryState
 from std_msgs.msg import Empty
 
 from monitor.drone import Drone
+
+import time
 
 
 class ExecutionMonitor(Node):
@@ -31,18 +33,21 @@ class ExecutionMonitor(Node):
         self.drone = Drone(self.id, homebase)
         self.lost_drones = {}
 
-        # Initializes the ros2 publishers and subscribers
+        # Initializes the ros2 publishers
         self.initializePublishers()
+
+        # Initializes the ros2 subscribers
         self.initializeSubscribers()
 
         # Initializes the ros2 clients
-        self.ask_replan_client = self.create_client(Replan, '/planner/replanning/ask_replan')
-        self.provide_wp_client = self.create_client(Replan, '/planner/replanning/provide_wps')
-        self.drone_request_client = self.create_client(DroneRequest, '/planner/comms/drone_request')
+        self.initializeClients()
 
         # Initializes the timer
         self.timer_period = 0.25 # The rate is 4 Hz
         self.timer = self.create_timer(self.timer_period, self.timerCallback)
+
+        self.init_time = time.time()
+        self.file = open('drone'+str(self.id)+'.txt', 'w')
 
 
     def initializePublishers(self):
@@ -65,6 +70,13 @@ class ExecutionMonitor(Node):
         self.replan_sub = self.create_subscription(Empty, '/planner/replanning/request_wps', self.replanCallback, 100)
         self.alarm_sub = self.create_subscription(Alarm, '/planner/signal/drone_alarm', self.alarmCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100)) # Not used by now
         self.comms_sub = self.create_subscription(DroneComms, '/planner/drone_comms', self.commsCallback, 100)
+        # self.user_req_sub = self.create_subscription(UserRequest, '/planner/comms/user_request', self.userReqCallback, 100)
+
+    def initializeClients(self):
+        """Initializes the clients"""
+        self.ask_replan_client = self.create_client(Replan, '/planner/replanning/ask_replan')
+        self.provide_wp_client = self.create_client(Replan, '/planner/replanning/provide_wps')
+        self.drone_request_client = self.create_client(DroneRequest, '/planner/comms/drone_request')
 
     def timerCallback(self):
         """At a certain rate it is checked the state of the drone along the mission.
@@ -80,7 +92,7 @@ class ExecutionMonitor(Node):
             msg.state = event_id
             self.event_pub.publish(msg)
             self.drone.reset()
-            # self.askReplan() # TODO to let the drone help once it has finished his mission
+            # self.askReplan() # Uncomment to let the drone help once it has finished its mission
 
         elif event_id == 1: # LOST
             # Publish a message in the drone_events topic
@@ -134,6 +146,7 @@ class ExecutionMonitor(Node):
 
     def trajectoryCallback(self, msg):
         """Callback for the trajectory topic. It is used to set the waypoints of the drone"""
+        self.file.write("Time path: "+str(time.time() - self.init_time)+"\n")
         self.get_logger().info("********************")
         for path in msg.paths:
             self.get_logger().info("Path "+str(path.identifier.natural) + ": "+str(len(path.points)))
@@ -152,6 +165,7 @@ class ExecutionMonitor(Node):
             while not self.provide_wp_client.wait_for_service(timeout_sec=1.0):
                 self.get_logger().warn('Service not available, waiting again...')
             
+            self.file.write("Time replan: "+str(time.time() - self.init_time)+"\n")
             # The waypoints are sent through the provide_wp service
             self.provide_wp_client.call_async(srv)
 
@@ -164,7 +178,8 @@ class ExecutionMonitor(Node):
 
         while not self.ask_replan_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().warn('Service not available, waiting again...')
-        
+
+        self.file.write("Time replan: "+str(time.time() - self.init_time)+"\n")
         # The request is sent through the ask_replan service
         self.ask_replan_client.call_async(srv)
 
@@ -212,6 +227,9 @@ class ExecutionMonitor(Node):
 
         if msg.type == DroneComms.CANCEL and drone_id != self.id:
             self.lost_drones = {}
+
+    # def userReqCallback(self, msg):
+
 
 
 class GetParam(Node):
