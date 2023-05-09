@@ -5,19 +5,24 @@ from monitor.monitor_data import MonitorData, State
 
 
 class Drone(MonitorData):
-    def __init__(self, id, homebase):
+    def __init__(self, id, homebase, dist_hb, max_time_stopped):
         """Initializes the drone object"""
         super().__init__(id)
-        self.battery = 100
         self.homebase = tuple(homebase)
+        self.dist_hb = dist_hb
+        self.max_time_stopped = max_time_stopped
+
+        self.battery = 100
         self.camera_ok = True
         self.deviated = False
+        self.stopped = False
         self.in_homebase = False
         self.repeat = False
 
         self.last_distance = float("inf")
         self.last_wp = self.position
         self.time_last_msg = time.time() # Not used by now
+        self.time_last_wp = None
 
 
     def checkDrone(self, dist_trj, dist_wp):
@@ -32,6 +37,13 @@ class Drone(MonitorData):
         if self.state == State.NOT_STARTED or self.state == State.LOST:
             return -1
 
+        # When the drone stops for too long with a mission to complete
+        if self.time_last_wp is not None and time.time() - self.time_last_wp > self.max_time_stopped:
+            print("Drone ", self.id, " stopped for too long during the mission")
+            self.state = State.LOST
+            self.stopped = True
+            return 1
+        
         # When the drone camera is broken
         if not self.camera_ok:
             print("Drone ", self.id, " has a broken camera")
@@ -52,10 +64,9 @@ class Drone(MonitorData):
         if self.repeat:
             print("Drone ", self.id, " needs to repeat the last waypoint")
             self.repeat = False
-            # TODO check what happens when the alarm is activated several times in a row
             return 5
         
-        # When the drone is in the last waypoint (homebase)
+        # When the drone is in the last waypoint
         if len(wps) == 1 and waypoint_dist <= dist_wp:
             self.advanceWP()
             self.state = State.GOING_HOME
@@ -130,11 +141,15 @@ class Drone(MonitorData):
         """Advances the drone to the next waypoint"""
         self.last_distance = float("inf")
         self.last_wp = self.waypoints[0]['point']
+        self.time_last_wp = time.time()
         super().advanceWP()
 
     def repeatWP(self):
         """Repeats the last covered waypoint. It is used when there is a minor error
         during the drone inspection that does not require a replan"""
+        if len(self.waypoints) == 0:
+            print("Error: Drone ", self.id, " has no waypoints to repeat")
+            return
         self.last_distance = float("inf")
         self.waypoints.insert(0, {'label': self.last_label, 'point': self.last_wp})
         self.last_wp = self.waypoints[1]['point']
@@ -148,7 +163,7 @@ class Drone(MonitorData):
         """Callback that updates the drone position"""
         super().positionCallback(msg)
         self.time_last_msg = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
-        self.in_homebase = True if self.distance(self.position, self.homebase) < 0.2 else False
+        self.in_homebase = True if self.distance(self.position, self.homebase) < self.dist_hb else False
 
     def reset(self):
         """Resets the drone to its initial state"""
@@ -157,6 +172,8 @@ class Drone(MonitorData):
         self.battery = 100 # TODO check how the real battery works
         self.camera_ok = True
         self.deviated = False
+        self.stopped = False
 
         self.last_distance = float("inf")
         self.last_wp = self.position
+        self.time_last_wp = None

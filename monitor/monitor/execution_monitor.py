@@ -2,12 +2,12 @@ import rclpy
 from rclpy.node import Node
 from rclpy import qos
 
-from mutac_msgs.msg import Alarm, State, Plan, Identifier, DroneComms#, UserRequest
+from mutac_msgs.msg import Alarm, State, Plan, Identifier, DroneComms, UserRequest
 from mutac_msgs.srv import Replan, DroneRequest
 
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import BatteryState
-from std_msgs.msg import Empty
+from std_msgs.msg import Empty, String
 
 from monitor.drone import Drone
 
@@ -25,12 +25,14 @@ class ExecutionMonitor(Node):
         # Monitor constant parameters
         self.dist_trj = self.get_parameter('distance.trajectory').value
         self.dist_wp = self.get_parameter('distance.waypoint').value
+        dist_hb = self.get_parameter('distance.homebase').value
+        max_time_stopped = self.get_parameter('max_time_stopped').value
         self.error_limit = self.get_parameter('error_limit').value
         self.namespace = self.get_parameter('namespace').value
 
         # Obtains the homebase position and creates the drone object
         homebase = self.get_parameter('homebase.drone'+str(self.id+1)).value
-        self.drone = Drone(self.id, homebase)
+        self.drone = Drone(self.id, homebase, dist_hb, max_time_stopped)
         self.lost_drones = {}
 
         # Initializes the ros2 publishers
@@ -47,7 +49,7 @@ class ExecutionMonitor(Node):
         self.timer = self.create_timer(self.timer_period, self.timerCallback)
 
         self.init_time = time.time()
-        self.file = open('drone'+str(self.id)+'.txt', 'w')
+        self.file = open('drone'+str(self.id)+self.namespace+'.txt', 'w')
 
 
     def initializePublishers(self):
@@ -55,6 +57,7 @@ class ExecutionMonitor(Node):
         self.event_pub = self.create_publisher(State, '/planner/notification/drone_events', qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
         self.covered_pub = self.create_publisher(Identifier, '/planner/notification/covered_points', qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
         self.comms_pub = self.create_publisher(DroneComms, '/planner/comms/drone_comms', 100)
+        self.drone_resp_pub = self.create_publisher(String, '/planner/comms/drone_response', 100)
 
     def initializeSubscribers(self):
         """Initializes the subscribers. The topics are the ones used in Aerostack. To monitor
@@ -70,7 +73,7 @@ class ExecutionMonitor(Node):
         self.replan_sub = self.create_subscription(Empty, '/planner/replanning/request_wps', self.replanCallback, 100)
         self.alarm_sub = self.create_subscription(Alarm, '/planner/signal/drone_alarm', self.alarmCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100)) # Not used by now
         self.comms_sub = self.create_subscription(DroneComms, '/planner/drone_comms', self.commsCallback, 100)
-        # self.user_req_sub = self.create_subscription(UserRequest, '/planner/comms/user_request', self.userReqCallback, 100)
+        self.user_req_sub = self.create_subscription(UserRequest, '/planner/comms/user_request', self.userRequestCallback, 100)
 
     def initializeClients(self):
         """Initializes the clients"""
@@ -99,7 +102,7 @@ class ExecutionMonitor(Node):
             msg = State()
             msg.identifier.natural = self.id
             msg.state = event_id
-            if self.drone.deviated:
+            if self.drone.deviated or self.drone.stopped:
                 msg.type = State.HOMEBASE
                 msg.position.x = self.drone.homebase[0]
                 msg.position.y = self.drone.homebase[1]
@@ -201,6 +204,7 @@ class ExecutionMonitor(Node):
                 self.lost_drones[drone_id] += 1
             else:
                 self.lost_drones[drone_id] = 1
+            self.get_logger().info("Lost drone: "+str(drone_id)+" Lost drones: "+str(len(self.lost_drones)))
             if len(self.lost_drones) == self.error_limit:
                 srv = DroneRequest.Request()
                 srv.type = DroneComms.CANCEL
@@ -228,8 +232,12 @@ class ExecutionMonitor(Node):
         if msg.type == DroneComms.CANCEL and drone_id != self.id:
             self.lost_drones = {}
 
-    # def userReqCallback(self, msg):
-
+    def userRequestCallback(self, msg):
+        drone_id = msg.identifier.natural
+        if drone_id == self.id or drone_id == -1:
+            if msg.text == 'swarm_state':
+                msg = String(data=str(self.id)+': State '+str(self.drone.state))
+                self.drone_resp_pub.publish(msg)
 
 
 class GetParam(Node):
