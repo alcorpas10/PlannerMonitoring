@@ -49,7 +49,7 @@ class ExecutionMonitor(Node):
         self.timer = self.create_timer(self.timer_period, self.timerCallback)
 
         self.init_time = time.time()
-        self.file = open('drone'+str(self.id)+self.namespace+'.txt', 'w')
+        self.file = open(self.namespace[1:]+'drone'+str(self.id)+'.txt', 'w')
 
 
     def initializePublishers(self):
@@ -111,12 +111,12 @@ class ExecutionMonitor(Node):
                 msg.type = State.LAND                
             self.event_pub.publish(msg)
             # Publish a message in the drone_comms topic
-            if self.drone.deviated:
-                msg = DroneComms()
-                msg.identifier.natural = self.id
-                msg.type = DroneComms.LOST
-                self.comms_pub.publish(msg)
-            self.askReplan()
+            msg = DroneComms()
+            msg.identifier.natural = self.id
+            msg.type = DroneComms.LOST
+            self.comms_pub.publish(msg)
+            if not self.drone.stopped:
+                self.askReplan()
             self.drone.waypoints = []
 
         elif event_id == 2: # LANDED
@@ -199,6 +199,7 @@ class ExecutionMonitor(Node):
     def commsCallback(self, msg):
         """Callback for the treatment of the communications between drones"""
         drone_id = msg.identifier.natural
+        self.get_logger().info("Comms received: "+str(msg))
         if msg.type == DroneComms.LOST and drone_id != self.id:
             if drone_id in self.lost_drones.keys():
                 self.lost_drones[drone_id] += 1

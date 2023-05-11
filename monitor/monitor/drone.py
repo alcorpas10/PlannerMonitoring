@@ -136,6 +136,7 @@ class Drone(MonitorData):
             super().setWaypoints(path)
             self.last_wp = self.position
             self.last_distance = float("inf")
+            self.time_last_wp = time.time()
 
     def advanceWP(self):
         """Advances the drone to the next waypoint"""
