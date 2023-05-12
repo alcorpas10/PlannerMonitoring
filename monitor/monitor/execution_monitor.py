@@ -12,6 +12,7 @@ from std_msgs.msg import Empty, String
 from monitor.drone import Drone
 
 import time
+from datetime import datetime
 
 
 class ExecutionMonitor(Node):
@@ -48,8 +49,9 @@ class ExecutionMonitor(Node):
         self.timer_period = 0.25 # The rate is 4 Hz
         self.timer = self.create_timer(self.timer_period, self.timerCallback)
 
-        self.init_time = time.time()
-        self.file = open(self.namespace[1:]+'drone'+str(self.id)+'.txt', 'w')
+        self.init_time = time.time() # TODO quitar
+        date = datetime.now().strftime("_%d-%m-%Y%_H-%M-%S") # TODO quitar
+        self.file = open(self.namespace[1:]+'drone'+str(self.id)+date+'.txt', 'w') # TODO quitar
 
 
     def initializePublishers(self):
@@ -72,7 +74,7 @@ class ExecutionMonitor(Node):
         self.trj_sub = self.create_subscription(Plan, '/planner/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
         self.replan_sub = self.create_subscription(Empty, '/planner/replanning/request_wps', self.replanCallback, 100)
         self.alarm_sub = self.create_subscription(Alarm, '/planner/signal/drone_alarm', self.alarmCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100)) # Not used by now
-        self.comms_sub = self.create_subscription(DroneComms, '/planner/drone_comms', self.commsCallback, 100)
+        self.comms_sub = self.create_subscription(DroneComms, '/planner/comms/drone_comms', self.commsCallback, 100)
         self.user_req_sub = self.create_subscription(UserRequest, '/planner/comms/user_request', self.userRequestCallback, 100)
 
     def initializeClients(self):
@@ -149,7 +151,7 @@ class ExecutionMonitor(Node):
 
     def trajectoryCallback(self, msg):
         """Callback for the trajectory topic. It is used to set the waypoints of the drone"""
-        self.file.write("Time path: "+str(time.time() - self.init_time)+"\n")
+        self.file.write("Time path: "+str(time.time() - self.init_time)+"\n") # TODO quitar
         self.get_logger().info("********************")
         for path in msg.paths:
             self.get_logger().info("Path "+str(path.identifier.natural) + ": "+str(len(path.points)))
@@ -168,7 +170,7 @@ class ExecutionMonitor(Node):
             while not self.provide_wp_client.wait_for_service(timeout_sec=1.0):
                 self.get_logger().warn('Service not available, waiting again...')
             
-            self.file.write("Time replan: "+str(time.time() - self.init_time)+"\n")
+            self.file.write("Time replan: "+str(time.time() - self.init_time)+"\n") # TODO quitar
             # The waypoints are sent through the provide_wp service
             self.provide_wp_client.call_async(srv)
 
@@ -182,7 +184,7 @@ class ExecutionMonitor(Node):
         while not self.ask_replan_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().warn('Service not available, waiting again...')
 
-        self.file.write("Time replan: "+str(time.time() - self.init_time)+"\n")
+        self.file.write("Time replan: "+str(time.time() - self.init_time)+"\n") # TODO quitar
         # The request is sent through the ask_replan service
         self.ask_replan_client.call_async(srv)
 
@@ -222,6 +224,7 @@ class ExecutionMonitor(Node):
                 
                 # The request is sent through the drone_request service
                 self.drone_request_client.call_async(srv)
+                self.get_logger().info("Cancellation requested")
 
                 # Finally a message is published in the drone_comms topic
                 msg = DroneComms()
@@ -235,8 +238,9 @@ class ExecutionMonitor(Node):
 
     def userRequestCallback(self, msg):
         drone_id = msg.identifier.natural
+        self.get_logger().info("User request received: "+str(msg))
         if drone_id == self.id or drone_id == -1:
-            if msg.text == 'swarm_state':
+            if msg.text.data == 'swarm_state':
                 msg = String(data=str(self.id)+': State '+str(self.drone.state))
                 self.drone_resp_pub.publish(msg)
 
