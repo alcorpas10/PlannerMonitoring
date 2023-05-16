@@ -32,15 +32,16 @@ class Replanner(Node):
         self.timer = None
 
         self.init_time = time.time() # TODO quitar
-        date = datetime.now().strftime("%d-%m-%Y%_H-%M-%S") # TODO quitar
-        self.file = open('replanning_manager_'+date+'.txt', 'w') # TODO quitar
+        self.date = datetime.now().strftime("%d-%m-%Y%_H-%M-%S") # TODO quitar
 
 
     def timerCallback(self):
         """Timer callback. It is used when a replan is requested and the path 
         collection time is over."""
         self.get_logger().debug("Time: "+str(time.time()))
+        self.file = open('replanning_manager_'+self.date+'.txt', 'w') # TODO quitar
         self.file.write("Time service: "+str(time.time() - self.init_time)+"\n") # TODO quitar
+        self.file.close()
         if len(self.plan.paths) > 1:
             srv = UpdatePlan.Request()
             srv.plan = self.plan
@@ -61,7 +62,9 @@ class Replanner(Node):
         self.get_logger().info("********************")
         self.plan.paths.append(request.path)
         self.get_logger().info("Plan: "+str(len(self.plan.paths)))
+        self.file = open('replanning_manager_'+self.date+'.txt', 'w') # TODO quitar
         self.file.write("Time ask: "+str(time.time() - self.init_time)+"\n") # TODO quitar
+        self.file.close()
         self.replan_pub.publish(Empty())
 
         # Timer to wait for the paths
@@ -75,7 +78,9 @@ class Replanner(Node):
     def pathCallback(self, request, response):
         """Path callback. It is called when a path is provided by a drone monitor."""
         self.plan.paths.append(request.path)
+        self.file = open('replanning_manager_'+self.date+'.txt', 'w') # TODO quitar
         self.file.write("Time path: "+str(time.time() - self.init_time)+"\n") # TODO quitar
+        self.file.close()
         return response
 
 
@@ -84,7 +89,6 @@ def main(args=None):
 
     replanner = Replanner()
     rclpy.spin(replanner)
-    replanner.file.close()
 
 if __name__ == '__main__':
     main()
