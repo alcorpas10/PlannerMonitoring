@@ -12,7 +12,6 @@ from std_msgs.msg import Empty, String
 from monitor.drone import Drone
 
 import time
-from datetime import datetime
 
 
 class ExecutionMonitor(Node):
@@ -48,9 +47,6 @@ class ExecutionMonitor(Node):
         # Initializes the timer
         self.timer_period = 0.25 # The rate is 4 Hz
         self.timer = self.create_timer(self.timer_period, self.timerCallback)
-
-        self.init_time = time.time() # TODO quitar
-        self.date = datetime.now().strftime("_%d-%m-%Y%_H-%M-%S") # TODO quitar
 
 
     def initializePublishers(self):
@@ -150,9 +146,6 @@ class ExecutionMonitor(Node):
 
     def trajectoryCallback(self, msg):
         """Callback for the trajectory topic. It is used to set the waypoints of the drone"""
-        self.file = open(self.namespace[1:]+'drone'+str(self.id)+self.date+'.txt', 'w') # TODO quitar
-        self.file.write("Time path: "+str(time.time() - self.init_time)+"\n") # TODO quitar
-        self.file.close()
         self.get_logger().info("********************")
         for path in msg.paths:
             self.get_logger().info("Path "+str(path.identifier.natural) + ": "+str(len(path.points)))
@@ -171,9 +164,6 @@ class ExecutionMonitor(Node):
             while not self.provide_wp_client.wait_for_service(timeout_sec=1.0):
                 self.get_logger().warn('Service not available, waiting again...')
             
-            self.file = open(self.namespace[1:]+'drone'+str(self.id)+self.date+'.txt', 'w') # TODO quitar
-            self.file.write("Time replan: "+str(time.time() - self.init_time)+"\n") # TODO quitar
-            self.file.close()
             # The waypoints are sent through the provide_wp service
             self.provide_wp_client.call_async(srv)
 
@@ -187,9 +177,6 @@ class ExecutionMonitor(Node):
         while not self.ask_replan_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().warn('Service not available, waiting again...')
 
-        self.file = open(self.namespace[1:]+'drone'+str(self.id)+self.date+'.txt', 'w') # TODO quitar
-        self.file.write("Time replan: "+str(time.time() - self.init_time)+"\n") # TODO quitar
-        self.file.close()
         # The request is sent through the ask_replan service
         self.ask_replan_client.call_async(srv)
 
