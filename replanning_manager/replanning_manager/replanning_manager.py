@@ -84,6 +84,7 @@ def main(args=None):
 
     replanner = Replanner()
     rclpy.spin(replanner)
+    replanner.file.close()
 
 if __name__ == '__main__':
     main()

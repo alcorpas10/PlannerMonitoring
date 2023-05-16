@@ -117,8 +117,8 @@ class ExecutionMonitor(Node):
             msg.identifier.natural = self.id
             msg.type = DroneComms.LOST
             self.comms_pub.publish(msg)
-            if not self.drone.stopped:
-                self.askReplan()
+            # if not self.drone.stopped:
+            self.askReplan()
             self.drone.waypoints = []
 
         elif event_id == 2: # LANDED
@@ -137,7 +137,7 @@ class ExecutionMonitor(Node):
             msg.identifier.natural = self.id
             msg.state = State.RECOVERED
             self.event_pub.publish(msg)
-            self.askReplan()
+            # self.askReplan()
 
         elif event_id == 5: # WP REPEATED
             msg = State()
@@ -260,6 +260,7 @@ def main(args=None):
 
     exec_mon = ExecutionMonitor(id)
     rclpy.spin(exec_mon)
+    exec_mon.file.close()
 
 if __name__ == '__main__':
     main()
