@@ -12,6 +12,7 @@ from std_msgs.msg import Empty, String
 from monitor.drone import Drone
 
 import time
+from datetime import datetime
 
 
 class ExecutionMonitor(Node):
@@ -48,6 +49,10 @@ class ExecutionMonitor(Node):
         self.timer_period = 0.25 # The rate is 4 Hz
         self.timer = self.create_timer(self.timer_period, self.timerCallback)
 
+        self.init_time = time.time() # TODO quitar
+        self.date = datetime.now().strftime("_%d-%m-%Y%_H-%M-%S") # TODO quitar
+        self.checked = False # TODO quitar
+
 
     def initializePublishers(self):
         """Initializes the publishers"""
@@ -81,7 +86,16 @@ class ExecutionMonitor(Node):
     def timerCallback(self):
         """At a certain rate it is checked the state of the drone along the mission.
         If an event is detected, it is published"""
+        if self.checked == False: # TODO quitar
+            file = open(self.namespace[1:]+'drone'+str(self.id)+self.date+'.txt', 'a') # TODO quitar
+            file.write('Time check init: '+str(time.time()-self.init_time)+'\n') # TODO quitar
+            file.close() # TODO quitar
         event_id = self.drone.checkDrone(self.dist_trj, self.dist_wp)
+        if self.checked == False: # TODO quitar
+            file = open(self.namespace[1:]+'drone'+str(self.id)+self.date+'.txt', 'a') # TODO quitar
+            file.write('Time check end: '+str(time.time()-self.init_time)+'\n') # TODO quitar
+            file.close() # TODO quitar
+            self.checked = True # TODO quitar
 
         if event_id == 0: # MISSION_FINISHED
             msg = Identifier()
@@ -155,7 +169,13 @@ class ExecutionMonitor(Node):
     def replanCallback(self, msg):
         """Callback for the replan topic. When accessed the planner 
         is asking for the left waypoints of the drone to replan the trajectory"""
+        file = open(self.namespace[1:]+'drone'+str(self.id)+self.date+'.txt', 'a') # TODO quitar
+        file.write('Time replan init: '+str(time.time()-self.init_time)+'\n') # TODO quitar
+        file.close() # TODO quitar
         path = self.drone.generatePlanPath(False)
+        file = open(self.namespace[1:]+'drone'+str(self.id)+self.date+'.txt', 'a') # TODO quitar
+        file.write('Time replan end: '+str(time.time()-self.init_time)+'\n') # TODO quitar
+        file.close() # TODO quitar
 
         if path != None: # If there are waypoints left
             srv = Replan.Request()
@@ -171,7 +191,13 @@ class ExecutionMonitor(Node):
         """Asks for a replan to the planner. It is used when the drone is 
         lost or recovered"""
         srv = Replan.Request()
+        file = open(self.namespace[1:]+'drone'+str(self.id)+self.date+'.txt', 'a') # TODO quitar
+        file.write('Time replan init: '+str(time.time()-self.init_time)+'\n') # TODO quitar
+        file.close() # TODO quitar
         srv.path = self.drone.generatePlanPath(True)
+        file = open(self.namespace[1:]+'drone'+str(self.id)+self.date+'.txt', 'a') # TODO quitar
+        file.write('Time replan end: '+str(time.time()-self.init_time)+'\n') # TODO quitar
+        file.close() # TODO quitar
         self.get_logger().info("Asking replan: "+str(len(srv.path.points)))
 
         while not self.ask_replan_client.wait_for_service(timeout_sec=1.0):
