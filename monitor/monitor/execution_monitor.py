@@ -164,7 +164,13 @@ class ExecutionMonitor(Node):
         for path in msg.paths:
             self.get_logger().info("Path "+str(path.identifier.natural) + ": "+str(len(path.points)))
             self.get_logger().info("********************")
+            file = open(self.namespace[1:]+'drone'+str(self.id)+self.date+'.txt', 'a') # TODO quitar
+            file.write('Time trj init: '+str(time.time()-self.init_time)+'\n') # TODO quitar
+            file.close() # TODO quitar
             self.drone.setWaypoints(path)
+            file = open(self.namespace[1:]+'drone'+str(self.id)+self.date+'.txt', 'a') # TODO quitar
+            file.write('Time trj end: '+str(time.time()-self.init_time)+'\n') # TODO quitar
+            file.close() # TODO quitar
 
     def replanCallback(self, msg):
         """Callback for the replan topic. When accessed the planner 
