@@ -142,6 +142,16 @@ class ExecutionMonitor(Node):
             msg.position.z = pos[2]
             self.event_pub.publish(msg)
 
+        elif event_id == 6: # CANCELLED
+            msg = State()
+            msg.identifier.natural = self.id
+            msg.state = 1 # LOST
+            msg.type = State.HOMEBASE
+            msg.position.x = self.drone.homebase[0]
+            msg.position.y = self.drone.homebase[1]
+            msg.position.z = self.drone.homebase[2]
+            self.event_pub.publish(msg)
+
     def trajectoryCallback(self, msg):
         """Callback for the trajectory topic. It is used to set the waypoints of the drone"""
         self.get_logger().info("********************")
@@ -232,6 +242,11 @@ class ExecutionMonitor(Node):
         if drone_id == self.id or drone_id == -1:
             if msg.text.data == 'swarm_state':
                 msg = String(data=str(self.id)+': State '+str(self.drone.state))
+                self.drone_resp_pub.publish(msg)
+            elif msg.text.data == 'cancel_mission':
+                self.drone.cancelled = True
+                self.drone.setState(State.LOST)
+                msg = String(data=str(self.id)+': Mission cancelled')
                 self.drone_resp_pub.publish(msg)
 
 
