@@ -27,14 +27,20 @@ class Drone(MonitorData):
 
 
     def checkDrone(self, dist_trj, dist_wp):
-        """Checks the drone status and returns the event code"""
+        """Checks the drone status and returns the corresponding event code. Have into 
+        account that the order of the code in this method is important"""
         # When the drone reaches the homebase after getting lost
         if self.state == State.LOST and self.in_homebase:
             print("Drone ", self.id, " was recovered")
             self.reset()
             return 4
         
+        # When the user cancels the drone's mission
         if self.cancelled:
+            print("Drone's ", self.id, " mission was cancelled")
+            if self.state == State.ON_MISSION:
+                self.state = State.LOST
+            self.cancelled = False
             return 6
         
         # When the drone did not start a mission or got lost
@@ -60,15 +66,15 @@ class Drone(MonitorData):
             self.state = State.LOST
             return 1
 
-        wps = self.waypoints
-
-        waypoint_dist = self.distance(self.position, wps[0]['point'])
-
         # When the drone has to repeat the previous waypoint
         if self.repeat:
             print("Drone ", self.id, " needs to repeat the last waypoint")
             self.repeat = False
             return 5
+        
+        wps = self.waypoints
+
+        waypoint_dist = self.distance(self.position, wps[0]['point'])
         
         # When the drone is in the last waypoint
         if len(wps) == 1 and waypoint_dist <= dist_wp:

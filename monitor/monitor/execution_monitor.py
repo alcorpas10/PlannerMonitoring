@@ -13,6 +13,9 @@ from monitor.drone import Drone
 
 
 class ExecutionMonitor(Node):
+    """Class that monitors the execution of the mission. It is in charge of checking the
+    status of its drone and sending the corresponding events to the planner and other
+    components of the architecture. It also reacts to the received events"""
     def __init__(self, id):
         """Initializes the execution monitor node"""
         super().__init__('execution_monitor_' + str(id),
@@ -110,7 +113,6 @@ class ExecutionMonitor(Node):
             msg.identifier.natural = self.id
             msg.type = DroneComms.LOST
             self.comms_pub.publish(msg)
-            # if not self.drone.stopped:
             self.askReplan()
             self.drone.waypoints = []
 
@@ -130,7 +132,7 @@ class ExecutionMonitor(Node):
             msg.identifier.natural = self.id
             msg.state = State.RECOVERED
             self.event_pub.publish(msg)
-            # self.askReplan()
+            # self.askReplan() # Uncomment to let the drone help once it is ready to fly again
 
         elif event_id == 5: # WP REPEATED
             msg = State()
@@ -145,7 +147,7 @@ class ExecutionMonitor(Node):
         elif event_id == 6: # CANCELLED
             msg = State()
             msg.identifier.natural = self.id
-            msg.state = 1 # LOST
+            msg.state = State.LOST
             msg.type = State.HOMEBASE
             msg.position.x = self.drone.homebase[0]
             msg.position.y = self.drone.homebase[1]
@@ -196,7 +198,7 @@ class ExecutionMonitor(Node):
             if msg.alarm == Alarm.CAMERA_FAILURE:
                 self.drone.camera_ok = False
             elif msg.alarm == Alarm.PHOTO_ERROR or msg.alarm == Alarm.VIBRATION_ERROR:
-                self.drone.repeatWP()
+                self.drone.repeatWP() # Minor error, the drone repeats the waypoint
 
     def commsCallback(self, msg):
         """Callback for the treatment of the communications between drones"""
@@ -208,7 +210,7 @@ class ExecutionMonitor(Node):
             else:
                 self.lost_drones[drone_id] = 1
             self.get_logger().info("Lost drone: "+str(drone_id)+" Lost drones: "+str(len(self.lost_drones)))
-            if len(self.lost_drones) == self.error_limit:
+            if len(self.lost_drones) == self.error_limit: # The mission should be cancelled, a request is sent
                 srv = DroneRequest.Request()
                 srv.type = DroneComms.CANCEL
                 self.get_logger().info("Requesting the cancellation of the mission")
@@ -218,7 +220,7 @@ class ExecutionMonitor(Node):
                     self.get_logger().warn('Service not available, waiting again...')
                     i += 1
                 
-                if i == 5:
+                if i == 3:
                     self.get_logger().warn('Service not available, could not cancel the mission')
                     return
                 
@@ -226,17 +228,19 @@ class ExecutionMonitor(Node):
                 self.drone_request_client.call_async(srv)
                 self.get_logger().info("Cancellation requested")
 
-                # Finally a message is published in the drone_comms topic
+                # Finally a message is published in the drone_comms topic to inform the other drones
                 msg = DroneComms()
                 msg.identifier.natural = self.id
                 msg.type = DroneComms.CANCEL
                 self.comms_pub.publish(msg)
                 self.lost_drones = {}
 
+        # The request to cancel has been made so the dictionary is reset
         if msg.type == DroneComms.CANCEL and drone_id != self.id:
             self.lost_drones = {}
 
     def userRequestCallback(self, msg):
+        """Callback for the user_request topic. It is used to receive the user requests"""
         drone_id = msg.identifier.natural
         self.get_logger().info("User request received: "+str(msg))
         if drone_id == self.id or drone_id == -1:
@@ -245,7 +249,6 @@ class ExecutionMonitor(Node):
                 self.drone_resp_pub.publish(msg)
             elif msg.text.data == 'cancel_mission':
                 self.drone.cancelled = True
-                self.drone.setState(State.LOST)
                 msg = String(data=str(self.id)+': Mission cancelled')
                 self.drone_resp_pub.publish(msg)
 
