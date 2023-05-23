@@ -97,6 +97,7 @@ class ExecutionMonitor(Node):
 
         elif event_id == 1: # LOST
             # Publish a message in the drone_events topic
+            self.drone.covered_distance += self.drone.distance(self.drone.last_wp, self.drone.position)
             msg = State()
             msg.identifier.natural = self.id
             msg.state = event_id
@@ -117,6 +118,7 @@ class ExecutionMonitor(Node):
             self.drone.waypoints = []
 
         elif event_id == 2: # LANDED
+            self.get_logger().info('Drone covered '+str(self.drone.covered_distance)+' meters')
             msg = State()
             msg.identifier.natural = self.id
             msg.state = event_id
@@ -128,6 +130,7 @@ class ExecutionMonitor(Node):
             self.covered_pub.publish(msg)
 
         elif event_id == 4: # RECOVERED
+            self.get_logger().info('Drone covered '+str(self.drone.covered_distance)+' meters')
             msg = State()
             msg.identifier.natural = self.id
             msg.state = State.RECOVERED
@@ -135,6 +138,7 @@ class ExecutionMonitor(Node):
             # self.askReplan() # Uncomment to let the drone help once it is ready to fly again
 
         elif event_id == 5: # WP REPEATED
+            self.drone.covered_distance += self.drone.distance(self.drone.waypoints[0]['point'], self.drone.position)
             msg = State()
             msg.identifier.natural = self.id
             msg.state = State.WP_REPEATED
@@ -145,6 +149,7 @@ class ExecutionMonitor(Node):
             self.event_pub.publish(msg)
 
         elif event_id == 6: # CANCELLED
+            self.drone.covered_distance += self.drone.distance(self.drone.last_wp, self.drone.position)
             msg = State()
             msg.identifier.natural = self.id
             msg.state = State.LOST

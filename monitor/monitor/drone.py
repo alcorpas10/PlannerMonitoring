@@ -25,6 +25,8 @@ class Drone(MonitorData):
         self.time_last_msg = time.time() # Not used by now
         self.time_last_wp = None
 
+        self.covered_distance = 0
+
 
     def checkDrone(self, dist_trj, dist_wp):
         """Checks the drone status and returns the corresponding event code. Have into 
@@ -150,6 +152,7 @@ class Drone(MonitorData):
 
     def advanceWP(self):
         """Advances the drone to the next waypoint"""
+        self.covered_distance += self.distance(self.last_wp, self.waypoints[0]['point'])
         self.last_wp = self.waypoints[0]['point']
         self.last_distance = float("inf")
         self.time_last_wp = time.time()
@@ -162,9 +165,9 @@ class Drone(MonitorData):
             print("Error: Drone ", self.id, " has no waypoints to repeat")
             return
         self.repeat = True
-        self.last_wp = self.waypoints[1]['point']
-        self.waypoints.insert(0, {'label': self.last_label, 'point': self.last_wp})
         self.last_distance = float("inf")
+        self.waypoints.insert(0, {'label': self.last_label, 'point': self.last_wp})
+        self.last_wp = self.waypoints[1]['point']
 
     def batteryCallback(self, msg):
         """Callback that updates the drone battery"""
