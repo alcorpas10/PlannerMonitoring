@@ -85,6 +85,7 @@ class ExecutionMonitor(Node):
         event_id = self.drone.checkDrone(self.dist_trj, self.dist_wp)
 
         if event_id == 0: # MISSION_FINISHED
+            self.get_logger().info('Drone covered '+str(self.drone.covered_distance)+' meters')
             msg = Identifier()
             msg.natural = self.id
             self.covered_pub.publish(msg)
@@ -118,7 +119,6 @@ class ExecutionMonitor(Node):
             self.drone.waypoints = []
 
         elif event_id == 2: # LANDED
-            self.get_logger().info('Drone covered '+str(self.drone.covered_distance)+' meters')
             msg = State()
             msg.identifier.natural = self.id
             msg.state = event_id
