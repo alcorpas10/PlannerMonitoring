@@ -26,6 +26,7 @@ class Drone(MonitorData):
         self.time_last_wp = None
 
         self.covered_distance = 0
+        self.inspection_height = None
 
 
     def checkDrone(self, dist_trj, dist_wp):

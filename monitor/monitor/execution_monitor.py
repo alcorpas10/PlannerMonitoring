@@ -11,6 +11,8 @@ from std_msgs.msg import Empty, String
 
 from monitor.drone import Drone
 
+from time import time
+
 
 class ExecutionMonitor(Node):
     """Class that monitors the execution of the mission. It is in charge of checking the
@@ -115,6 +117,7 @@ class ExecutionMonitor(Node):
             msg.identifier.natural = self.id
             msg.type = DroneComms.LOST
             self.comms_pub.publish(msg)
+            self.get_logger().info('Published comms message at '+str(time()))
             self.askReplan()
             self.drone.waypoints = []
 
@@ -208,7 +211,7 @@ class ExecutionMonitor(Node):
     def commsCallback(self, msg):
         """Callback for the treatment of the communications between drones"""
         drone_id = msg.identifier.natural
-        self.get_logger().info("Comms received: "+str(msg))
+        self.get_logger().info("Comms received: "+str(msg)+" at "+str(time()))
         if msg.type == DroneComms.LOST and drone_id != self.id:
             if drone_id in self.lost_drones.keys():
                 self.lost_drones[drone_id] += 1
@@ -247,15 +250,20 @@ class ExecutionMonitor(Node):
     def userRequestCallback(self, msg):
         """Callback for the user_request topic. It is used to receive the user requests"""
         drone_id = msg.identifier.natural
-        self.get_logger().info("User request received: "+str(msg))
+        self.get_logger().info("User request received: "+str(msg)+ " at "+str(time()))
         if drone_id == self.id or drone_id == -1:
-            if msg.text.data == 'swarm_state':
+            if msg.text.data == 'state':
                 msg = String(data=str(self.id)+': State '+str(self.drone.state))
                 self.drone_resp_pub.publish(msg)
-            elif msg.text.data == 'cancel_mission':
+            elif msg.text.data == 'cancel':
                 self.drone.cancelled = True
                 msg = String(data=str(self.id)+': Mission cancelled')
                 self.drone_resp_pub.publish(msg)
+            elif 'height' in msg.text.data:
+                self.drone.inspection_height = msg.text.data.split(' ')[1]
+                msg = String(data=str(self.id)+': Mission inspection height changed. See the planner to apply changes')
+                self.drone_resp_pub.publish(msg)
+
 
 
 class GetParam(Node):
