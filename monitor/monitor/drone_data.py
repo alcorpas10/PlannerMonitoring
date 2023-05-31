@@ -17,7 +17,7 @@ class Label(Enum):
     POSITIONING_LABEL = 0
     COVERING_LABEL = 1
 
-class MonitorData:
+class DroneData:
     """Class that contains the basic data of a drone"""
     def __init__(self, id):
         """Initializes the drone object"""

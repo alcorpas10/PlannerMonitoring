@@ -62,12 +62,12 @@ class Replanner(Node):
             self.timer = self.create_timer(self.timer_period, self.timerCallback)
         else:
             self.timer.reset()
-        self.get_logger().info("Time: "+str(time.time()))
+        self.get_logger().debug("Time: "+str(time.time()))
         return response
 
     def pathCallback(self, request, response):
         """Path callback. It is called when a path is provided by a drone monitor."""
-        self.get_logger().info("Received path: "+str(time.time()))
+        self.get_logger().debug("Received path: "+str(time.time()))
         self.plan.paths.append(request.path)
         return response
 

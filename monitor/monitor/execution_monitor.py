@@ -87,7 +87,7 @@ class ExecutionMonitor(Node):
         event_id = self.drone.checkDrone(self.dist_trj, self.dist_wp)
 
         if event_id == 0: # MISSION_FINISHED
-            self.get_logger().info('Drone covered '+str(self.drone.covered_distance)+' meters')
+            self.get_logger().debug('Drone covered '+str(self.drone.covered_distance)+' meters')
             msg = Identifier()
             msg.natural = self.id
             self.covered_pub.publish(msg)
@@ -117,7 +117,7 @@ class ExecutionMonitor(Node):
             msg.identifier.natural = self.id
             msg.type = DroneComms.LOST
             self.comms_pub.publish(msg)
-            self.get_logger().info('Published comms message at '+str(time()))
+            self.get_logger().debug('Published comms message at '+str(time()))
             self.askReplan()
             self.drone.waypoints = []
 
@@ -133,7 +133,7 @@ class ExecutionMonitor(Node):
             self.covered_pub.publish(msg)
 
         elif event_id == 4: # RECOVERED
-            self.get_logger().info('Drone covered '+str(self.drone.covered_distance)+' meters')
+            self.get_logger().debug('Drone covered '+str(self.drone.covered_distance)+' meters')
             msg = State()
             msg.identifier.natural = self.id
             msg.state = State.RECOVERED
@@ -179,8 +179,14 @@ class ExecutionMonitor(Node):
             srv = Replan.Request()
             srv.path = path
 
-            while not self.provide_wp_client.wait_for_service(timeout_sec=1.0):
+            i = 0
+            while not self.provide_wp_client.wait_for_service(timeout_sec=1.0) and i < 3:
                 self.get_logger().warn('Service not available, waiting again...')
+                i += 1
+            
+            if i == 3:
+                self.get_logger().warn('Service not available, could not provide the waypoints')
+                return
             
             # The waypoints are sent through the provide_wp service
             self.provide_wp_client.call_async(srv)
@@ -192,8 +198,14 @@ class ExecutionMonitor(Node):
         srv.path = self.drone.generatePlanPath(True)
         self.get_logger().info("Asking replan: "+str(len(srv.path.points)))
 
-        while not self.ask_replan_client.wait_for_service(timeout_sec=1.0):
+        i = 0
+        while not self.ask_replan_client.wait_for_service(timeout_sec=1.0) and i < 3:
             self.get_logger().warn('Service not available, waiting again...')
+            i += 1
+        
+        if i == 3:
+            self.get_logger().warn('Service not available, could not ask for a replan')
+            return
 
         # The request is sent through the ask_replan service
         self.ask_replan_client.call_async(srv)
@@ -211,7 +223,7 @@ class ExecutionMonitor(Node):
     def commsCallback(self, msg):
         """Callback for the treatment of the communications between drones"""
         drone_id = msg.identifier.natural
-        self.get_logger().info("Comms received: "+str(msg)+" at "+str(time()))
+        self.get_logger().debug("Comms received: "+str(msg)+" at "+str(time()))
         if msg.type == DroneComms.LOST and drone_id != self.id:
             if drone_id in self.lost_drones.keys():
                 self.lost_drones[drone_id] += 1
@@ -224,7 +236,7 @@ class ExecutionMonitor(Node):
                 self.get_logger().info("Requesting the cancellation of the mission")
 
                 i = 0
-                while not self.drone_request_client.wait_for_service(timeout_sec=1.0) and i < 5:
+                while not self.drone_request_client.wait_for_service(timeout_sec=1.0) and i < 3:
                     self.get_logger().warn('Service not available, waiting again...')
                     i += 1
                 
@@ -250,7 +262,7 @@ class ExecutionMonitor(Node):
     def userRequestCallback(self, msg):
         """Callback for the user_request topic. It is used to receive the user requests"""
         drone_id = msg.identifier.natural
-        self.get_logger().info("User request received: "+str(msg)+ " at "+str(time()))
+        self.get_logger().debug("User request received: "+str(msg)+ " at "+str(time()))
         if drone_id == self.id or drone_id == -1:
             if msg.text.data == 'state':
                 msg = String(data=str(self.id)+': State '+str(self.drone.state))

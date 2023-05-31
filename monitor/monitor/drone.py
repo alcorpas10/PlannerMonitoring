@@ -1,10 +1,10 @@
 import math
 import time
 
-from monitor.monitor_data import MonitorData, State
+from monitor.drone_data import DroneData, State
 
 
-class Drone(MonitorData):
+class Drone(DroneData):
     def __init__(self, id, homebase, dist_hb, max_time_stopped):
         """Initializes the drone object"""
         super().__init__(id)
