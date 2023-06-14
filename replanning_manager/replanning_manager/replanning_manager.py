@@ -16,7 +16,7 @@ class Replanner(Node):
         super().__init__('Replanning_manager')
 
         # Publisher
-        self.replan_pub = self.create_publisher(Empty, '/planner/replanning/request_wps', 100)
+        self.replan_pub = self.create_publisher(Empty, '/planner/replanning/replan_initiated', 100)
 
         # Services
         self.ask_replan_srv = self.create_service(Replan, '/planner/replanning/ask_replan', self.replanCallback)

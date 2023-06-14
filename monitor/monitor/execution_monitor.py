@@ -70,7 +70,7 @@ class ExecutionMonitor(Node):
 
         # Planner topics
         self.trj_sub = self.create_subscription(Plan, '/planner/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
-        self.replan_sub = self.create_subscription(Empty, '/planner/replanning/request_wps', self.replanCallback, 100)
+        self.replan_sub = self.create_subscription(Empty, '/planner/replanning/replan_initiated', self.replanCallback, 100)
         self.alarm_sub = self.create_subscription(Alarm, '/planner/signal/drone_alarm', self.alarmCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100)) # Not used by now
         self.comms_sub = self.create_subscription(DroneComms, '/planner/comms/drone_comms', self.commsCallback, 100)
         self.user_req_sub = self.create_subscription(UserRequest, '/planner/comms/user_request', self.userRequestCallback, 100)
