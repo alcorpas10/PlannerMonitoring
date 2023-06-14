@@ -53,9 +53,10 @@ class Drone(DroneData):
         # When the drone stops for too long with a mission to complete
         if self.time_last_wp is not None and time.time() - self.time_last_wp > self.max_time_stopped:
             print("Drone ", self.id, " stopped for too long during the mission")
-            self.state = State.LOST
-            self.stopped = True
-            return 1
+            # self.state = State.LOST
+            # self.stopped = True
+            # return 1
+            return -1 # Uncomment the previous lines and remove this one to activate stop detection
         
         # When the drone camera is broken
         if not self.camera_ok:
