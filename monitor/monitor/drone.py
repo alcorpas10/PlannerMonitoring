@@ -56,7 +56,7 @@ class Drone(DroneData):
             # self.state = State.LOST
             # self.stopped = True
             # return 1
-            return -1 # Uncomment the previous lines and remove this one to activate stop detection
+            # Uncomment the previous lines to activate stop detection
         
         # When the drone camera is broken
         if not self.camera_ok:
