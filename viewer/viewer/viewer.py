@@ -28,6 +28,8 @@ class Viewer(Node):
         self.left_pubs = []
         self.covered_pubs = []
 
+        self.pose = [None for _ in range(self.n_drones)]
+
         self.trj_sub = self.create_subscription(Plan, '/planner/planned_paths', self.trajectoryCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=10))
         self.covered_sub = self.create_subscription(Identifier, '/planner/notification/covered_points', self.coveredCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
         self.events_sub = self.create_subscription(State, '/planner/notification/drone_events', self.eventCallback, qos.QoSProfile(reliability=qos.ReliabilityPolicy.RELIABLE, depth=100))
@@ -55,35 +57,24 @@ class Viewer(Node):
             received_path.append(path_id)
             for p in path.points:
                 self.left_points[path_id].append([p.point.x, p.point.y, p.point.z, p.label])
-            self.covered_points[path_id].append([path.points[0].point.x, path.points[0].point.y, path.points[0].point.z, path.points[0].label])
         for i in range(self.n_drones):
             self.get_logger().info("Drone " + str(i) + " has " + str(len(self.left_points[i])) + " left points")
-            if i not in received_path:
-                self.covered_points[i].append(self.pose)
 
     def eventCallback(self, msg):
         drone_id = msg.identifier.natural
         if msg.state == State.WP_REPEATED:
             self.get_logger().info("WP repeated")
-            self.covered_points[drone_id].insert(-1, self.left_points[drone_id][1])
             self.left_points[drone_id].insert(1, self.last_wp[drone_id])
 
     def positionCallback(self, msg, id):
         """Saves the new position of the drone and appends it at the end of the covered points
         list and at the beginning of the left points list. Before appending the new position,
         the old one is removed"""
-        self.pose = (msg.position.x, msg.position.y, msg.position.z)
+        self.pose[id] = (msg.position.x, msg.position.y, msg.position.z)
         if len(self.left_points[id]) > 0:
             self.left_points[id].pop(0)
-        if len(self.covered_points[id]) > 0:
-            self.covered_points[id].pop()
-        if len(self.left_points[id]) > 0 and len(self.covered_points[id]) > 0:
-            pos_in_trj = self.calculateProjection(self.pose, self.covered_points[id][-1], self.left_points[id][0])
-            self.covered_points[id].append(pos_in_trj)
-        else:
-            self.covered_points[id].append(self.pose)
         if len(self.left_points[id]) > 0:
-            self.left_points[id].insert(0, self.pose)
+            self.left_points[id].insert(0, self.pose[id])
 
     def calculateProjection(self, pos, wp1, wp2):
         """Returns the projection of a point in a line"""
@@ -97,9 +88,7 @@ class Viewer(Node):
     def coveredCallback(self, msg):
         drone_id = msg.natural
         # Append the second point of the left points list to the second to last position of the covered points list
-        #if len(self.left_points[drone_id]) > 1 and len(self.covered_points[drone_id]) >= 1:
         self.last_wp[drone_id] = self.left_points[drone_id][1]
-        self.covered_points[drone_id].insert(-1, self.left_points[drone_id][1])
         self.left_points[drone_id].pop(1)
         self.get_logger().info("Length: "+str(len(self.left_points[drone_id])))
 
@@ -119,6 +108,8 @@ class Viewer(Node):
             path_msg.poses = poses_list_left
             self.left_pubs[i].publish(path_msg)
 
+            if self.pose[i] is not None:
+                self.covered_points[i].append(self.pose[i])
             poses_list_cov = []
             for p in self.covered_points[i]:
                 poses_list_cov.append(PoseStamped(pose=Pose(position=Point(
